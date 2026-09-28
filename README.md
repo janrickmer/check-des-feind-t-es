@@ -12,7 +12,7 @@ direkt im Browser aus und zeigt eine Tabelle:
 | Nachname / Vorname | aus den verschlüsselten Feiditor-Daten (sonst aus dem Überblick) |
 | Code passt? | **ja** (grün) / **nein** (rot, fett): Bestätigungscode ↔ Geburtsdatum des Escape-Room-Überblicks, Konstante des jeweiligen Escape-Rooms, Namensabgleich Feiditor-Daten ↔ Überblick. „–“ = Datei enthält keinen Code (reiner Feiditor). |
 | Rote Buchstaben | Rot-Anteil wie in der Feiditor-Lehrkraft-Auswertung (eingefügt oder ≤ 0,015 s getippt); über 50 % rot hervorgehoben |
-| Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von Google Gemini über die Gemini-API (Modell wählbar; voreingestellt das neueste stabile Flash-Modell) |
+| Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von einem Sprachmodell über die API des gewählten Anbieters (voreingestellt OpenRouter mit kostenlosen Modellen; wahlweise Groq, Google Gemini oder ein anderer OpenAI-kompatibler Dienst; Modell wählbar) |
 
 Ein Klick auf eine Zeile zeigt Details (Kurs, Geburtsdatum, Code, Abschlusszeit, Gründe der
 Code-Prüfung, Begründungen der KI). Ein Klick auf die Prozentzahl öffnet die Feiditor-Ansicht:
@@ -33,39 +33,47 @@ vorbefüllter Aufgabentext), samt Legende und Statistik. Eine reine Feiditor-Dat
    hinterlegt (Konstante `PIN_HASH`, Salt `PIN_SALT`). Neue PIN setzen:
    `sha256("check-des-feindtes|" + PIN)` als Hex eintragen. Achtung: Eine achtstellige Zahl ist
    kein echter Schutz gegen jemanden, der den Quelltext liest – die PIN hält nur Zufallsbesucher fern.
-4. **Gemini-Verbindung** (für die Spalte „Feiditor-Bewertung“): Oben rechts auf „Gemini“ klicken
-   und den Google-API-Schlüssel aus Google AI Studio eintragen
-   (<https://aistudio.google.com/app/apikey>). Der Schlüssel wird ausschließlich im
-   `localStorage` des jeweiligen Browsers gespeichert – mit der PIN verschlüsselt (PBKDF2 mit
-   200 000 Runden, AES-GCM) – und geht nur an `generativelanguage.googleapis.com`. Entschlüsselt
+4. **KI-Verbindung** (für die Spalte „Feiditor-Bewertung“): Oben rechts auf „KI: nicht verbunden“
+   klicken, den Anbieter wählen (Vorgabe: OpenRouter) und den API-Schlüssel eintragen. Jeder Schlüssel
+   wird ausschließlich im `localStorage` des jeweiligen Browsers gespeichert – mit der PIN verschlüsselt
+   (PBKDF2 mit 200 000 Runden, AES-GCM) – und geht nur an den gewählten Anbieter. Entschlüsselt
    liegt er nur im Arbeitsspeicher der geöffneten Seite; deshalb fragt die Seite bei jedem Öffnen die
-   PIN ab. Wird die PIN im Quelltext geändert, muss der Schlüssel einmal neu eingetragen werden.
-   Nach dem Speichern fragt die Seite die verfügbaren Modelle bei Google ab und bietet sie zur Auswahl an.
+   PIN ab. Wird die PIN im Quelltext geändert, müssen die Schlüssel einmal neu eingetragen werden.
+   Nach dem Speichern fragt die Seite die verfügbaren Modelle beim Anbieter ab, schlägt das
+   leistungsfähigste vor und bietet die übrigen zur Auswahl an.
 
-## KI-Anbindung über die Gemini-API
+## KI-Anbieter
 
-Die Seite ruft `generateContent` der Gemini-API direkt aus dem Browser auf (Header `x-goog-api-key`,
-strukturierte JSON-Antwort über `responseSchema`). Ein claude.ai-Abo lässt sich für solche Aufrufe
-nicht nutzen, und die Claude-API braucht Console-Guthaben; deshalb wurde auf Gemini umgestellt.
-Die frühere Claude-Anbindung liegt in der Git-Historie (Commit `519b889`).
+Die Seite spricht die APIs direkt aus dem Browser an (kein eigener Server). Ein claude.ai-Abo lässt
+sich dafür nicht nutzen, und die Claude-API braucht Console-Guthaben; die frühere Claude-Anbindung
+liegt in der Git-Historie (Commit `519b889`), die reine Gemini-Fassung in Commit `005422a`.
 
-Was du zum Google-Kontingent wissen solltest (Stand September 2026, bitte in AI Studio prüfen):
+**Kein kostenloses Kontingent ist unbegrenzt.** Alle Anbieter begrenzen Anfragen pro Minute und pro
+Tag, manche zusätzlich Token pro Tag. Die Seite braucht genau eine Anfrage je Schülerdatei
+(grob 3–5 Tsd. Eingabe- und unter 1 Tsd. Ausgabe-Token), hält je Anbieter einen Mindestabstand
+zwischen den Anfragen ein, wiederholt bei „429“ nach der vom Anbieter genannten Wartezeit und weicht
+bei erschöpftem oder ausgefallenem Modell automatisch auf das nächste der Rangliste aus (nur für die
+laufende Sitzung; die Auswahl im Panel zeigt es als „Ausweichmodell“ bzw. „erschöpft“).
 
-* Google AI Studio stellt ein kostenloses Kontingent mit Tages- und Minutenlimits bereit
-  (je nach Modell etwa 5–15 Anfragen pro Minute und 100–1500 pro Tag). Die Seite sendet deshalb
-  höchstens eine Anfrage alle vier Sekunden und wiederholt bei „429“ automatisch.
-* Für Nutzer:innen im EWR, in der Schweiz und im Vereinigten Königreich verlangt Google für die
-  Gemini-API ein hinterlegtes Abrechnungskonto; dafür gelten dort die Datenbedingungen der
-  bezahlten Dienste.
-* Im unbezahlten Kontingent darf Google Eingaben und Antworten zur Produktverbesserung nutzen und von
-  Menschen prüfen lassen; im bezahlten Kontingent nicht. Vor dem Senden von Schülertexten prüfen,
-  welche Bedingungen für das eigene Projekt gelten.
-* Kosten im bezahlten Kontingent: je Schülerdatei grob 3–5 Tsd. Eingabe- und unter 1 Tsd. Ausgabe-Token,
-  bei Flash-Modellen also Bruchteile eines Cents.
+| Anbieter | Schlüssel | Limits (Stand September 2026, bitte beim Anbieter prüfen) | Hinweise |
+|---|---|---|---|
+| **OpenRouter** (Vorgabe) | kostenloses Konto, <https://openrouter.ai/settings/keys> | kostenlose Modelle (`:free`): 20 Anfragen/Minute, 50 Anfragen/Tag; nach einem einmaligen Guthabenkauf von 10 US-$ 1000 Anfragen/Tag. Gezählt werden Anfragen, keine Token. | Browser-Aufrufe (CORS) werden unterstützt. Die kostenlosen Modelle laufen bei Drittanbietern, die Eingaben protokollieren oder zum Training nutzen dürfen; das muss unter Settings → Privacy erlaubt sein, sonst antwortet die API „No endpoints found matching your data policy“. Vorgabe-Modell: das leistungsfähigste kostenlose (z. B. gpt-oss-120b). Ist das Tageslimit erreicht, meldet die Seite das ohne Durchprobieren anderer Modelle. |
+| **Groq** | kostenloses Konto ohne Kreditkarte, <https://console.groq.com/keys> | je nach Modell etwa 30 Anfragen/Minute und 1000/Tag, dazu Token-Limits pro Minute und Tag (z. B. 200 000 Token/Tag bei gpt-oss-120b ≈ 40 Schülerdateien; 100 000 bei Llama 3.3 70B). Tageslimits gelten je Modell, daher wechselt die Seite bei erschöpftem Modell. | Sehr schnell. Ob Groq Aufrufe direkt aus dem Browser zulässt, konnte nicht geprüft werden – falls nicht, meldet der Verbindungstest „erlaubt keine Aufrufe direkt aus dem Browser (CORS)“; dann OpenRouter nutzen. Datenschutzbedingungen von Groq vor dem Senden von Schülertexten prüfen. |
+| **Google Gemini** | Google AI Studio, <https://aistudio.google.com/app/apikey> | kostenloses Kontingent mit Minuten- und Tageslimits je Modell. Für viele Schlüssel liegt das Tageslimit der neuesten Modelle bei 0 („limit: 0“ noch vor der ersten Bewertung) – die Seite weicht dann auf das nächste Modell aus, für das der Schlüssel ein Kontingent hat. | Im kostenlosen Kontingent darf Google Eingaben zur Produktverbesserung nutzen und von Menschen prüfen lassen; im bezahlten nicht. Für den EWR, die Schweiz und das Vereinigte Königreich verlangt Google ein hinterlegtes Abrechnungskonto (dann gelten die Datenbedingungen der bezahlten Dienste). |
+| **Anderer OpenAI-kompatibler Dienst** | je nach Dienst | je nach Dienst | Basis-URL ohne Schrägstrich am Ende (z. B. `https://api.cerebras.ai/v1`); der Dienst muss CORS erlauben. Ohne `GET …/models` wird die Modell-ID von Hand eingetragen. |
+
+Technisch: OpenAI-kompatible Dienste werden über `POST {Basis-URL}/chat/completions` mit
+`Authorization: Bearer …`, System- und Nutzer-Nachricht, `temperature 0.2` und
+`response_format: {"type":"json_object"}` aufgerufen (lehnt ein Modell den JSON-Modus mit HTTP 400 ab,
+wird ohne wiederholt); die Antwort wird tolerant gelesen (Markdown-Zäune, `<think>`-Blöcke, Text
+drumherum, Noten in Groß-/Kleinschreibung). Gemini läuft weiter über `generateContent` mit
+`responseSchema`. Modelllisten kommen von `GET …/models` (OpenRouter zusätzlich `GET …/auth/key`
+zur Schlüsselprüfung, weil `/models` dort öffentlich ist); Nicht-Textmodelle (Whisper, TTS,
+Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modelle ans Ende sortiert.
 
 ## Datenschutz
 
-* Alle PDFs werden lokal im Browser gelesen und entschlüsselt; nichts wird hochgeladen.
+* Alle PDFs werden lokal im Browser gelesen und entschlüsselt; nichts wird hochgeladen. Schlüssel werden je Anbieter getrennt gespeichert (`cdf_<anbieter>_api_key_enc`), der gewählte Anbieter unter `cdf_provider`.
 * An die KI gehen nur: Kurszeile, Aufgabenstellungen, Antworttexte und die
   Lösungserläuterungen aus dem Überblick. Keine Namen, Geburtsdaten oder Codes.
 * Leere Antworten werden ohne KI als „ungenügend“ eingeordnet.
