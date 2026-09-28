@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Check des Feind(t)es</title>
+<style>
+  :root{
+    --paper:#f7f4ec; --paper2:#fffdf8; --ink:#221f1a; --muted:#6f675a;
+    --line:#ddd5c4; --accent:#6b4f2c; --accent2:#8a6a3c; --shadow:rgba(40,30,15,.10);
+    --red:#b3261e; --green:#1f7a34; --orange:#c2710c; --soft:#efe9dd;
+    --serif:"Iowan Old Style","Palatino Linotype","Book Antiqua",Palatino,Georgia,serif;
+    --sans:"Avenir Next",Avenir,"Segoe UI","Helvetica Neue",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{min-height:100%}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:var(--sans); -webkit-font-smoothing:antialiased; line-height:1.5}
+  .screen{display:none}
+  .screen.active{display:block}
+  a{color:var(--accent)}
+  button{font-family:inherit}
+
+  /* ---------- PIN ---------- */
+  #screen-pin.active{display:grid; place-items:center; min-height:100vh; padding:40px 16px}
+  .card{width:100%; max-width:440px; background:var(--paper2); border:1px solid var(--line); border-radius:14px; padding:40px 36px; box-shadow:0 18px 50px -28px var(--shadow)}
+  .brand{font-family:var(--serif); font-size:13px; letter-spacing:.22em; text-transform:uppercase; color:var(--accent); margin:0 0 6px}
+  .card h1{font-family:var(--serif); font-weight:600; font-size:30px; margin:0 0 4px; letter-spacing:.01em}
+  .card p.sub{color:var(--muted); margin:0 0 26px; font-size:14.5px}
+  label{display:block; font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:0 0 6px}
+  .field{margin-bottom:18px}
+  input[type=password],input[type=text]{
+    width:100%; font-family:var(--serif); font-size:18px; color:var(--ink); background:var(--paper);
+    border:1px solid var(--line); border-radius:9px; padding:11px 13px; outline:none; transition:border-color .15s, box-shadow .15s;
+  }
+  input[type=password]{letter-spacing:.18em}
+  input:focus{border-color:var(--accent2); box-shadow:0 0 0 3px rgba(138,106,60,.16)}
+  .btn{font-size:15px; font-weight:600; letter-spacing:.01em; color:var(--paper2); background:var(--ink); border:1px solid var(--ink); border-radius:9px; padding:11px 18px; cursor:pointer; transition:transform .06s, background .15s}
+  .btn:hover{background:#332e25}
+  .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.55; cursor:default; transform:none}
+  .btn.block{width:100%; margin-top:6px}
+  .btn.ghost{background:transparent; color:var(--ink); border-color:var(--line)}
+  .btn.ghost:hover{background:var(--soft)}
+  .btn.small{font-size:13px; padding:7px 12px}
+  .err{color:var(--red); font-size:13.5px; min-height:18px; margin:2px 0 0}
+  .shake{animation:shake .4s}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+
+  /* ---------- Hauptseite ---------- */
+  #screen-main.active{display:block}
+  .topbar{display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; padding:14px 22px; border-bottom:1px solid var(--line); background:var(--paper2); position:sticky; top:0; z-index:5}
+  .topbar .title{font-family:var(--serif); font-size:20px; font-weight:600}
+  .topbar .title small{display:block; font-family:var(--sans); font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); font-weight:500}
+  .conn{display:inline-flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); background:var(--paper); border:1px solid var(--line); border-radius:999px; padding:6px 12px 6px 10px; cursor:pointer; user-select:none}
+  .conn:hover{background:var(--soft)}
+  .dot{width:9px; height:9px; border-radius:50%; background:#b9b0a0; display:inline-block}
+  .dot.on{background:var(--green)}
+  .dot.bad{background:var(--red)}
+  .wrap{max-width:1180px; margin:0 auto; padding:30px 16px 90px}
+  h2{font-family:var(--serif); font-weight:600; font-size:22px; margin:0 0 6px}
+  .sub{color:var(--muted); margin:0 0 18px; font-size:14.5px}
+  .panel{background:var(--paper2); border:1px solid var(--line); border-radius:12px; padding:22px 24px; margin:0 0 22px}
+  .panel.hidden{display:none}
+  .row{display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:12px}
+  .row input[type=password],.row input[type=text]{flex:1 1 260px; width:auto; font-size:15px; letter-spacing:.04em; font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .note{font-size:13px; color:var(--muted); margin:10px 0 0; line-height:1.55}
+  .note b{color:var(--ink)}
+  .status{font-size:13.5px; margin:10px 0 0; min-height:18px}
+  .status.ok{color:var(--green)} .status.bad{color:var(--red)}
+  .drop{background:var(--paper2); border:1.5px dashed var(--line); border-radius:12px; padding:30px 24px; text-align:center; color:var(--muted); font-size:14.5px; transition:border-color .15s, background .15s}
+  .drop.over{border-color:var(--accent2); background:var(--soft)}
+  .drop strong{color:var(--ink)}
+  .drop input{margin-top:6px}
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; justify-content:space-between; margin:22px 0 10px}
+  .batchsum{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .tablewrap{border:1px solid var(--line); border-radius:12px; overflow:auto; background:var(--paper2)}
+  table.batch{width:100%; border-collapse:collapse; font-size:15px; min-width:760px}
+  table.batch th{font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); background:var(--paper); position:sticky; top:0; z-index:1}
+  table.batch td{padding:11px 14px; border-bottom:1px solid var(--line); font-family:var(--serif); vertical-align:top; font-variant-numeric:tabular-nums}
+  table.batch tbody tr:last-child td{border-bottom:0}
+  table.batch tr.main{cursor:pointer}
+  table.batch tr.main:hover td{background:var(--soft)}
+  table.batch tr.open td{background:var(--soft)}
+  table.batch td.num{white-space:nowrap}
+  .ja{color:var(--green); font-weight:600}
+  .nein{color:var(--red); font-weight:800}
+  .na{color:var(--muted)}
+  .pct.high{color:var(--red); font-weight:800}
+  .grades{font-family:var(--sans); font-size:14px; line-height:1.55; white-space:nowrap}
+  .grades .g{display:block}
+  .grades .g i{font-style:normal; color:var(--muted)}
+  .pending{color:var(--muted); font-style:italic; font-family:var(--sans); font-size:13.5px}
+  .errtext{color:var(--red); font-family:var(--sans); font-size:13.5px}
+  .hint{color:var(--muted); font-family:var(--sans); font-size:13.5px}
+  .hint a{color:var(--accent)}
+  tr.errrow td{color:var(--muted); font-style:italic; font-family:var(--sans); font-size:13.5px}
+  tr.details td{background:var(--paper); font-family:var(--sans); font-size:13.5px; padding:14px 18px 18px}
+  .dl{display:grid; grid-template-columns:max-content 1fr; gap:4px 16px; margin:0 0 12px}
+  .dl dt{color:var(--muted); margin:0}
+  .dl dd{margin:0; word-break:break-word}
+  .reasons{margin:0 0 12px; padding-left:18px}
+  .reasons li{margin:2px 0}
+  .just{margin:0; padding-left:18px}
+  .just li{margin:4px 0}
+  .just b{font-weight:600}
+  .legend{font-size:12.5px; color:var(--muted); margin:10px 0 0}
+  .copyright{position:fixed; left:0; right:0; bottom:10px; text-align:center; font-size:11px; letter-spacing:.05em; color:var(--muted); pointer-events:none; z-index:6}
+  .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; background:var(--soft); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
+  .spinner{display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (max-width:640px){
+    .card{padding:30px 22px}
+    .wrap{padding:20px 16px 90px}
+    .panel{padding:18px 16px}
+    .topbar{padding:12px 16px}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ PIN ============ -->
+<section id="screen-pin" class="screen active">
+  <div class="card" id="pin-card">
+    <p class="brand">Check des Feind(t)es</p>
+    <h1>PIN eingeben</h1>
+    <p class="sub">Auswertung der Feiditor- und Escape-Room-Abgaben. Bitte gib die PIN ein.</p>
+    <form id="pin-form" autocomplete="off">
+      <div class="field">
+        <label for="pin">PIN</label>
+        <input type="password" id="pin" inputmode="numeric" autocomplete="off" spellcheck="false" autofocus>
+      </div>
+      <p class="err" id="pin-err"></p>
+      <button class="btn block" type="submit">Öffnen</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ HAUPTSEITE ============ -->
+<section id="screen-main" class="screen">
+  <div class="topbar">
+    <div class="title">Check des Feind(t)es<small>Auswertung für die Lehrkraft</small></div>
+    <button type="button" class="conn" id="conn-chip" title="Claude-Verbindung anzeigen"><span class="dot" id="conn-dot"></span><span id="conn-label">Claude: nicht verbunden</span></button>
+  </div>
+
+  <div class="wrap">
+    <div class="panel hidden" id="conn-panel">
+      <h2>Claude-Verbindung (für die KI-Bewertung)</h2>
+      <p class="sub">Die Einordnung der Feiditor-Aufgaben in Leistungsbereiche übernimmt Claude (Modell <span class="kbd">claude-opus-5-5</span>). Dafür braucht dieser Browser einen API-Schlüssel aus deiner Claude Console.</p>
+      <div class="row">
+        <input type="password" id="api-key" placeholder="sk-ant-api03-…" autocomplete="off" spellcheck="false">
+        <button type="button" class="btn small" id="key-save">Speichern &amp; testen</button>
+        <button type="button" class="btn small ghost" id="key-remove">Schlüssel entfernen</button>
+      </div>
+      <p class="status" id="conn-status"></p>
+      <p class="note">
+        <b>So funktioniert die Verbindung:</b> Der Schlüssel wird ausschließlich im lokalen Speicher <em>dieses</em> Browsers auf <em>diesem</em> Gerät abgelegt (localStorage) und nie an diese Seite oder GitHub übertragen. Jede Anfrage geht direkt von diesem Browser an <span class="kbd">api.anthropic.com</span>.
+        Wer die Seite auf einem anderen Gerät oder in einem anderen Browser öffnet, findet keinen Schlüssel vor und muss seinen eigenen hinterlegen – ein Zugriff auf dein Konto ist von dort aus nicht möglich.
+        Den Schlüssel erstellst du unter <a href="https://platform.claude.com/settings/keys" target="_blank" rel="noopener">platform.claude.com → API Keys</a>; abgerechnet wird nach Verbrauch über dein Console-Guthaben, nicht über das claude.ai-Abo.
+        An die KI werden nur Aufgabenstellungen, Antworttexte und die Lösungserläuterungen gesendet – keine Namen, Geburtsdaten oder Codes.
+      </p>
+    </div>
+
+    <h2>PDF-Dateien auswerten</h2>
+    <p class="sub">Lade die PDF-Dateien der Schüler:innen hoch – sowohl die kombinierten Dateien aus dem Escape-Room (mit Feiditor-Aufgaben) als auch Dateien aus dem alleinigen Feiditor. Alles wird lokal im Browser ausgewertet.</p>
+    <div class="drop" id="drop">
+      <p style="margin:0 0 8px"><strong>PDF-Dateien auswählen</strong> oder hierher ziehen</p>
+      <input type="file" id="pdf-input" accept="application/pdf,.pdf" multiple>
+    </div>
+
+    <div class="toolbar">
+      <span class="batchsum" id="batchsum">Noch keine Dateien geladen.</span>
+      <span>
+        <button type="button" class="btn small" id="grade-btn" disabled>KI-Bewertung starten</button>
+        <button type="button" class="btn small ghost" id="clear-btn" disabled>Tabelle leeren</button>
+      </span>
+    </div>
+
+    <div class="tablewrap">
+      <table class="batch">
+        <thead>
+          <tr>
+            <th>Nachname</th>
+            <th>Vorname</th>
+            <th>Code passt?</th>
+            <th>Rote Buchstaben</th>
+            <th>Feiditor-Bewertung</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <p class="legend">Rote Buchstaben = Anteil der im Feiditor rot markierten Zeichen (eingefügt oder ≤ 0,015 s getippt), berechnet wie in der Feiditor-Auswertung. „Code passt?“ prüft, ob der Bestätigungscode zum Geburtsdatum aus dem Escape-Room-Überblick gehört und ob die Namen in Feiditor-Daten und Überblick übereinstimmen. Klick auf eine Zeile zeigt Details und die Begründungen der KI.</p>
+  </div>
+</section>
+
+<div class="copyright">Copyright Jan-Rickmer Feindt</div>
+
+<script>
+"use strict";
+/* ====================================================================== *
+ *  Check des Feind(t)es – reine HTML-Datei, keine externen Bibliotheken.  *
+ *  Die PDFs aus Feiditor und Escape-Room sind selbst erzeugt und          *
+ *  unkomprimiert; sie werden hier direkt auf Byte-Ebene gelesen.          *
+ * ====================================================================== */
+
+/* ---------------- Konfiguration ---------------- */
+const PIN_HASH="475680d147d8297eb150e47811c44c6687c219eeb9f9b119da7581395006fed1"; // SHA-256("check-des-feindtes|PIN")
+const PIN_SALT="check-des-feindtes|";
+const SESSION_FLAG="cdf_unlocked";
+const KEY_STORE="cdf_claude_api_key";
+const MODEL="claude-opus-5-5";
+const API_URL="https://api.anthropic.com/v1/messages";
+const MODELS_URL="https://api.anthropic.com/v1/models?limit=1";
+const RED_LIMIT=50;            // Rot-Anteil strikt ÜBER diesem Wert wird rot hervorgehoben (wie im Feiditor)
+const CODE_FACTOR=1104;        // Bestätigungscode = Geburtstagszahl (TTMMJJJJ) * 1104 + Konstante des jeweiligen Escape-Rooms
+const KNOWN_MAGIC=new Set([2,6,7,9,11,12,15,26]);
+// Erkennung des Escape-Rooms über die Kurszeile im PDF -> exakte Konstante
+const ROOM_MAGIC=[
+  {re:/Lumo und die innere Stimme/i,     magic:6},
+  {re:/Sneaker vor der Haustür/i,        magic:7},
+  {re:/Stunde Null/i,                    magic:12},
+  {re:/Fake ?News|Desinformation/i,      magic:2},
+  {re:/Das Zeitportal/i,                 magic:7},
+  {re:/Europäischer Jugendgipfel/i,      magic:9},
+  {re:/EU-Klimagipfel/i,                 magic:11},
+  {re:/Das Gutachten|Stoodt|Pastafari/i, magic:15},
+  {re:/Vermögensgeheimnis/i,             magic:26},
+];
+const GRADES=["sehr gut","gut","befriedigend","ausreichend","mangelhaft","ungenügend"];
+const GRADE_CONCURRENCY=2;
+
+/* ---------------- kleine Helfer ---------------- */
+const $=(id)=>document.getElementById(id);
+function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+async function sha256Hex(str){const buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,"0")).join("");}
+function readAsBinaryStr(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=()=>{const u=new Uint8Array(fr.result);let s="";const CH=0x8000;for(let i=0;i<u.length;i+=CH)s+=String.fromCharCode.apply(null,u.subarray(i,i+CH));res(s);};
+    fr.onerror=()=>rej(new Error("Datei konnte nicht gelesen werden."));
+    fr.readAsArrayBuffer(file);
+  });
+}
+function bytesToB64(bytes){let bin="";const CH=0x8000;for(let i=0;i<bytes.length;i+=CH)bin+=String.fromCharCode.apply(null,bytes.subarray(i,i+CH));return btoa(bin);}
+function b64ToBytes(b64){const bin=atob(b64);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out;}
+// Windows-1252 (WinAnsiEncoding der PDFs) -> Unicode
+const CP1252_HI={0x80:"€",0x82:"‚",0x83:"ƒ",0x84:"„",0x85:"…",0x86:"†",0x87:"‡",0x88:"ˆ",0x89:"‰",0x8A:"Š",0x8B:"‹",0x8C:"Œ",0x8E:"Ž",0x91:"‘",0x92:"’",0x93:"“",0x94:"”",0x95:"•",0x96:"–",0x97:"—",0x98:"˜",0x99:"™",0x9A:"š",0x9B:"›",0x9C:"œ",0x9E:"ž",0x9F:"Ÿ"};
+function decodeCp1252(bin){let o="";for(let i=0;i<bin.length;i++){const c=bin.charCodeAt(i);o+=(c>=0x80&&c<=0x9F&&CP1252_HI[c])?CP1252_HI[c]:String.fromCharCode(c);}return o;}
+function normName(s){return String(s||"").normalize("NFC").toLowerCase().replace(/\s+/g," ").trim();}
+function visibleCount(s){let n=0;for(const ch of String(s||""))if(!/\s/.test(ch))n++;return n;}
+function letterCount(s){return (String(s||"").match(/\p{L}/gu)||[]).length;}
+
+/* ---------------- Krypto (identisch zum Feiditor) ---------------- */
+async function _key(codeStr,usage){const mat=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(codeStr));return crypto.subtle.importKey("raw",mat,{name:"AES-GCM"},false,usage);}
+async function aesDecrypt(bundle,codeStr){const parts=bundle.split(":");const iv=b64ToBytes(parts[0]);const ct=b64ToBytes(parts[1]);const key=await _key(codeStr,["decrypt"]);const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ct);return new TextDecoder().decode(pt);}
+function kfN(n){return String(n*(0x230+0x220));}   // Feiditor-Code aus der Buchstabenzahl des Vornamens
+async function autoDecrypt(bundle,hintName){
+  const order=[]; const h=letterCount(hintName); if(h>0) order.push(h);
+  for(let n=1;n<=60;n++) if(!order.includes(n)) order.push(n);
+  for(const n of order){
+    try{ const json=await aesDecrypt(bundle,kfN(n)); return {payload:JSON.parse(json),n}; }catch(e){}
+  }
+  throw new Error("Tracking-Daten konnten nicht entschlüsselt werden.");
+}
+
+/* ---------------- Feiditor-Auswertung (EINE Formel, wie im Feiditor) ---------------- */
+function classify(isVisible,src,gap){
+  const COL={plain:"#23201b",paste:"#b3261e",fast:"#c2710c",slow:"#1f7a34",system:"#9c948a"};
+  if(src==="s"||src==="q") return COL.system;   // 's' = vorbefüllte Aufgaben (Feiditor), 'q' = Fragen (Lerntagebuch-Feiditor)
+  if(!isVisible) return COL.plain;
+  if(src==="p") return COL.paste;
+  if(gap>=0&&gap<=15) return COL.paste;
+  if(gap>15&&gap<=70) return COL.fast;
+  return COL.slow;
+}
+function computeStats(t,m){
+  const WS=/\s/; let total=0,red=0,orange=0,green=0;
+  for(let i=0;i<t.length;i++){
+    const ch=t[i]; const isV=!WS.test(ch);
+    const mark=m[i]||["t",-1]; const col=classify(isV,mark[0],mark[1]);
+    if(isV && mark[0]!=="s" && mark[0]!=="q"){ total++;
+      if(col==="#b3261e") red++;
+      else if(col==="#c2710c") orange++;
+      else green++;
+    }
+  }
+  const pct=(x)=>total?Math.round(x/total*100):0;
+  return {total,red,orange,green,redPct:pct(red),orangePct:pct(orange),greenPct:pct(green)};
+}
+function redPercent(p){ return (typeof p.r==="number"&&isFinite(p.r))?p.r:computeStats(p.t||"",p.m||[]).redPct; }
+function splitName(p){
+  let vn=(p.vn||"").trim(), nn=(p.nn||"").trim();
+  if(!vn&&!nn){ const n=(p.n||"").trim(); const i=n.indexOf(" "); if(i<0) vn=n; else { vn=n.slice(0,i); nn=n.slice(i+1).trim(); } }
+  return {vn,nn};
+}
+
+/* ---------------- PDF auf Byte-Ebene lesen ---------------- */
+const TRACK_RE=/%TRACKDATA (\S+)/;
+const ESC_RE=/%ESCAPEDATA (\S+)/;
+
+function parseEscapeData(b64){
+  try{ return JSON.parse(new TextDecoder().decode(b64ToBytes(b64))); }
+  catch(e){ try{ return JSON.parse(decodeURIComponent(escape(atob(b64)))); }catch(e2){ return null; } }
+}
+/* Alle Content-Streams (unkomprimiert) in Dokumentreihenfolge; /Length wird bevorzugt, sonst Regex */
+function extractStreams(bin){
+  const out=[]; const re=/<<\s*\/Length\s+(\d+)\s*>>\s*stream\r?\n/g; let mm;
+  while((mm=re.exec(bin))){
+    const start=mm.index+mm[0].length; const len=parseInt(mm[1],10);
+    let body=bin.substr(start,len);
+    const tail=bin.substr(start+len,12);
+    if(!/^\s*endstream/.test(tail)){ // Länge stimmt nicht -> bis zum nächsten endstream lesen
+      const e=bin.indexOf("endstream",start); body=e<0?bin.slice(start):bin.slice(start,e);
+    }
+    out.push(body); re.lastIndex=start+body.length;
+  }
+  if(!out.length){ const re2=/stream\r?\n([\s\S]*?)\r?\nendstream/g; while((mm=re2.exec(bin))) out.push(mm[1]); }
+  return out;
+}
+/* Alle (…) Tj-Strings eines Streams in Zeichenreihenfolge, WinAnsi -> Unicode */
+function extractTjStrings(stream){
+  const out=[]; const n=stream.length; let i=0;
+  while(i<n){
+    if(stream[i]!=="("){ i++; continue; }
+    let j=i+1, depth=1, s="";
+    while(j<n){
+      const d=stream[j];
+      if(d==="\\"){
+        const e=stream[j+1];
+        if(e==="n")s+="\n"; else if(e==="r")s+="\r"; else if(e==="t")s+="\t"; else if(e==="b")s+="\b"; else if(e==="f")s+="\f";
+        else if(e>="0"&&e<="7"){ let oct=e, k=j+2; while(k<j+4&&stream[k]>="0"&&stream[k]<="7"){oct+=stream[k];k++;} s+=String.fromCharCode(parseInt(oct,8)); j=k; continue; }
+        else if(e==="\n"){ /* Zeilenfortsetzung */ }
+        else s+=e;
+        j+=2; continue;
+      }
+      if(d==="("){ depth++; s+=d; j++; continue; }
+      if(d===")"){ depth--; if(depth===0) break; s+=d; j++; continue; }
+      s+=d; j++;
+    }
+    if(/^\s*Tj/.test(stream.slice(j+1,j+8))) out.push(decodeCp1252(s));
+    i=j+1;
+  }
+  return out;
+}
+/* Escape-Room-Überblick aus den Seitentexten rekonstruieren */
+function parseOverview(bin){
+  const pages=extractStreams(bin).map(extractTjStrings);
+  const ov={found:false,name:"",birthDate:"",code:"",code2:"",completedAt:"",subtitle:"",summary:"",notes:""};
+  const TITLE="Überblick deiner Antworten & Erläuterungen", NOTES="Lösungserläuterungen", COPY="Copyright Jan-Rickmer Feindt";
+  let notesParts=[];
+  for(const arr of pages){
+    if(!arr.length) continue;
+    const isOv=arr[0]===TITLE, isNotes=arr[0]===NOTES;
+    if(isOv||isNotes){
+      ov.found=true;
+      if(!ov.subtitle && arr.length>1 && /·|Escape-Room/.test(arr[1])) ov.subtitle=arr[1];
+    }
+    if(isOv){
+      const nx=(label)=>{const k=arr.indexOf(label);return (k>=0&&k+1<arr.length)?arr[k+1]:"";};
+      // Namenslabel variiert je Escape-Room: "NAME" oder "SCHÜLERIN / SCHÜLER"
+      if(!ov.name){ ov.name=nx("NAME"); if(!ov.name){ const k=arr.findIndex(s=>/^SCH(Ü|UE)LER/i.test(s)&&s.length<32); if(k>=0&&k+1<arr.length) ov.name=arr[k+1]; } }
+      if(!ov.birthDate) ov.birthDate=nx("GEBURTSDATUM");
+      if(!ov.code) ov.code=nx("BESTÄTIGUNGSCODE");
+      if(!ov.completedAt) ov.completedAt=nx("ABGESCHLOSSEN AM");
+      if(!ov.summary) ov.summary=nx("ÜBERSICHT");
+      for(const s of arr){ const f=s.match(/^Bestätigungscode für Moodle:\s*(\S+)/); if(f&&!ov.code2) ov.code2=f[1]; }
+    }
+    if(isNotes){
+      const start=(arr.length>1&&arr[1]===ov.subtitle)?2:1;
+      for(let k=start;k<arr.length;k++){ if(arr[k]===COPY) break; notesParts.push(arr[k]); }
+    }
+  }
+  ov.notes=notesParts.join("\n").replace(/\n(?=[a-zäöüß])/g," ").trim();
+  return ov;
+}
+
+/* ---------------- Feiditor-Text in Aufgaben zerlegen ---------------- */
+function splitTasks(payload,escTasks){
+  const t=payload.t||"", m=payload.m||[];
+  const isSys=(i)=>!!(m[i]&&(m[i][0]==="s"||m[i][0]==="q"));
+  const hasSys=m.some(x=>x&&(x[0]==="s"||x[0]==="q"));
+  const lines=[]; let st=0;
+  for(let i=0;i<=t.length;i++){ if(i===t.length||t[i]==="\n"){ lines.push({s:st,e:i}); st=i+1; } }
+  const txt=(l)=>t.slice(l.s,l.e);
+  const lineIsSys=(l)=>{ let any=false; for(let i=l.s;i<l.e;i++){ if(/\s/.test(t[i])) continue; any=true; if(!isSys(i)) return false; } return any; };
+  const studentText=(s,e)=>{ let a=""; for(let i=s;i<e;i++){ const ch=t[i]; if(isSys(i)&&!/\s/.test(ch)) continue; a+=ch; } return a.replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); };
+  const headers=[];
+  lines.forEach((l,li)=>{ const mm=txt(l).match(/^\s*Aufgabe\s+(\d+)\s*:?\s*$/); if(mm && (!hasSys||lineIsSys(l))) headers.push({li,nr:parseInt(mm[1],10)}); });
+  if(!headers.length){
+    const answer=studentText(0,t.length);
+    return [{nr:1,task:(escTasks&&escTasks[0])||"",answer,chars:visibleCount(answer),free:true}];
+  }
+  const blocks=[];
+  headers.forEach((h,k)=>{
+    const from=h.li+1, to=(k+1<headers.length)?headers[k+1].li:lines.length;
+    const taskLines=[];
+    for(let ai=from;ai<to;ai++){
+      const l=lines[ai]; const s=txt(l).trim();
+      if(s===""){ if(taskLines.length) break; else continue; }
+      if(hasSys){ if(lineIsSys(l)) taskLines.push(s); else break; }
+      else { if(!taskLines.length) taskLines.push(s); else break; }
+    }
+    const s=lines[from]?lines[from].s:t.length, e=lines[to-1]?lines[to-1].e:t.length;
+    const answer=(from<to)?studentText(s,e):"";
+    let task=taskLines.join(" ");
+    if(!task && escTasks && escTasks[h.nr-1]) task=escTasks[h.nr-1];
+    blocks.push({nr:h.nr,task,answer,chars:visibleCount(answer),free:false});
+  });
+  return blocks;
+}
+
+/* ---------------- Bestätigungscode prüfen ---------------- */
+function checkCode(info){
+  const reasons=[];
+  const hasAny=!!(info.code||info.birthDate||info.code2);
+  if(!hasAny) return {state:"none",reasons:["Kein Bestätigungscode enthalten (Datei stammt aus dem alleinigen Feiditor oder enthält keinen Escape-Room-Überblick)."]};
+  let ok=true;
+  const code=info.code||info.code2;
+  if(!code){ ok=false; reasons.push("Kein Bestätigungscode im Überblick gefunden."); }
+  if(!info.birthDate){ ok=false; reasons.push("Kein Geburtsdatum im Überblick gefunden."); }
+  if(code && !/^\d{1,12}$/.test(code)){ ok=false; reasons.push("Bestätigungscode ist keine Zahl: „"+code+"“."); }
+  const dm=(info.birthDate||"").match(/^(\d{2})\.(\d{2})\.(\d{4})$/);
+  if(info.birthDate && !dm){ ok=false; reasons.push("Geburtsdatum nicht lesbar: „"+info.birthDate+"“."); }
+  if(ok && dm){
+    const n=parseInt(dm[1]+dm[2]+dm[3],10); const c=parseInt(code,10);
+    const base=Math.floor(c/CODE_FACTOR), rest=c%CODE_FACTOR;
+    if(base!==n){ ok=false; reasons.push("Der Bestätigungscode "+code+" gehört nicht zum Geburtsdatum "+info.birthDate+"."); }
+    else{
+      const room=ROOM_MAGIC.find(r=>r.re.test(info.subtitle||""));
+      if(room){ if(rest!==room.magic){ ok=false; reasons.push("Der Code passt zum Geburtsdatum, aber nicht zu diesem Escape-Room (Prüfkonstante "+rest+" statt "+room.magic+")."); } }
+      else if(!KNOWN_MAGIC.has(rest)){ reasons.push("Hinweis: Prüfkonstante "+rest+" ist keinem bekannten Escape-Room zugeordnet (neuer Escape-Room?). Geburtsdatum und Code passen zueinander."); }
+    }
+  }
+  if(info.code && info.code2 && info.code!==info.code2){ ok=false; reasons.push("Der Code im Kopfbereich ("+info.code+") unterscheidet sich vom Code in der Fußzeile ("+info.code2+")."); }
+  if(info.payloadName && info.overviewName && normName(info.payloadName)!==normName(info.overviewName)){
+    ok=false; reasons.push("Name in den Feiditor-Daten („"+info.payloadName+"“) weicht vom Namen im Escape-Room-Überblick („"+info.overviewName+"“) ab.");
+  }
+  if(info.escName && info.overviewName && normName(info.escName)!==normName(info.overviewName)){
+    ok=false; reasons.push("Name in den versteckten Escape-Room-Daten („"+info.escName+"“) weicht vom Namen im Überblick („"+info.overviewName+"“) ab.");
+  }
+  if(ok && !reasons.length) reasons.push("Bestätigungscode "+code+" passt zum Geburtsdatum "+info.birthDate+(info.overviewName?" von "+info.overviewName:"")+".");
+  return {state:ok?"ja":"nein",reasons};
+}
+
+/* ---------------- Datei analysieren -> Zeile ---------------- */
+async function analyzeFile(file){
+  const row={file:file.name,vn:"",nn:"",code:{state:"none",reasons:[]},red:null,tasks:[],grade:{state:"na"},info:{},error:""};
+  let bin;
+  try{ bin=await readAsBinaryStr(file); }catch(e){ row.error=e.message; return row; }
+  if(!/^%PDF/.test(bin)){ row.error="Keine PDF-Datei."; return row; }
+  const tm=bin.match(TRACK_RE), em=bin.match(ESC_RE);
+  const escd=em?parseEscapeData(em[1]):null;
+  const ov=parseOverview(bin);
+  let payload=null, decErr="";
+  if(tm){
+    try{ payload=(await autoDecrypt(tm[1],(escd&&escd.v)||(ov.name||"").split(" ")[0])).payload; }
+    catch(e){ decErr=e.message; }
+  }
+  if(!tm && !escd && !ov.found){ row.error="Keine Feiditor- oder Escape-Room-Daten gefunden (PDF wurde evtl. neu gespeichert oder stammt nicht aus dem Feiditor)."; return row; }
+  if(tm && !payload){ row.error="Tracking-Daten vorhanden, aber nicht entschlüsselbar ("+decErr+")."; }
+
+  // Namen: Feiditor-Daten > versteckte Escape-Daten > Überblick
+  let vn="",nn="";
+  if(payload){ const s=splitName(payload); vn=s.vn; nn=s.nn; }
+  else if(escd&&(escd.v||escd.n)){ vn=(escd.v||"").trim(); nn=(escd.n||"").trim(); }
+  else if(ov.name){ const n=ov.name.trim(); const i=n.indexOf(" "); if(i<0) vn=n; else { vn=n.slice(0,i); nn=n.slice(i+1).trim(); } }
+  row.vn=vn; row.nn=nn;
+
+  row.info={
+    subtitle:ov.subtitle, birthDate:ov.birthDate, code:ov.code, code2:ov.code2, completedAt:ov.completedAt, summary:ov.summary,
+    overviewName:ov.name, payloadName:payload?((vn+" "+nn).trim()):"", escName:escd?(((escd.v||"")+" "+(escd.n||"")).trim()):"",
+    notes:ov.notes, hasTrack:!!tm, hasEsc:!!escd, hasOverview:ov.found, decryptN:null,
+  };
+  row.code=checkCode(row.info);
+
+  if(payload){
+    row.red=redPercent(payload);
+    row.tasks=splitTasks(payload,escd&&Array.isArray(escd.t)?escd.t:null);
+    row.grade={state:"idle"};
+  }
+  return row;
+}
+
+/* ---------------- Tabelle ---------------- */
+let rows=[];
+/* Anzeige-Zeilen: Eine reine Feiditor-Datei (ohne Code) und ein Escape-Room-Überblick (ohne Feiditor-Texte)
+   derselben Person werden zu EINER Zeile zusammengeführt (z. B. Standalone-Feiditor + Überblick-PDF). */
+function buildViews(){
+  const views=[]; const used=new Set();
+  const ovOnly=rows.filter(r=>!r.error && !r.tasks.length && r.info.hasOverview && (r.vn||r.nn));
+  rows.forEach((r,idx)=>{
+    if(used.has(r)) return;
+    const v={row:r,idx,nn:r.nn,vn:r.vn,code:r.code,red:r.red,grade:r.grade,info:r.info,tasks:r.tasks,error:r.error,files:[r.file],file:r.file,merged:false};
+    if(!r.error && r.tasks.length && r.code.state==="none" && (r.vn||r.nn)){
+      const key=normName(r.vn+" "+r.nn);
+      const mate=ovOnly.find(o=>o!==r && !used.has(o) && normName(o.vn+" "+o.nn)===key);
+      if(mate){
+        used.add(mate);
+        const info=Object.assign({},mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true});
+        v.info=info; v.code=checkCode(info); v.files=[r.file,mate.file]; v.file=r.file+" + "+mate.file; v.merged=true;
+        if(!r.info.notes && mate.info.notes) r.info.notes=mate.info.notes;       // Lösungserläuterungen für die KI
+        if(!r.info.subtitle && mate.info.subtitle) r.info.subtitle=mate.info.subtitle;
+      }
+    }
+    used.add(r); views.push(v);
+  });
+  return views;
+}
+function sortedViews(){
+  return buildViews().sort((a,b)=>{
+    if(!!a.error!==!!b.error) return a.error?1:-1;
+    const c=(a.nn||"").localeCompare(b.nn||"","de"); if(c) return c;
+    const d=(a.vn||"").localeCompare(b.vn||"","de"); if(d) return d;
+    return (a.file||"").localeCompare(b.file||"","de");
+  });
+}
+function gradeCell(r){
+  if(r.error && !r.tasks.length) return '<span class="na">–</span>';
+  const g=r.grade;
+  if(g.state==="na") return '<span class="hint">– (keine Feiditor-Texte in dieser Datei)</span>';
+  if(g.state==="idle") return hasKey()?'<span class="hint">wartet auf KI-Bewertung</span>':'<span class="hint"><a href="#" class="open-conn">Claude verbinden</a>, um die Bewertung zu starten</span>';
+  if(g.state==="pending") return '<span class="pending"><span class="spinner"></span>wird bewertet …</span>';
+  if(g.state==="error") return '<span class="errtext">Fehler: '+esc(g.message)+'</span> <a href="#" class="retry">erneut</a>';
+  const items=g.results.map((x,i)=>'<span class="g">Feiditor-Nr. '+x.nr+': '+esc(x.note)+(i<g.results.length-1?',':'')+'</span>').join("");
+  return '<span class="grades">'+items+'</span>';
+}
+function codeCell(r){
+  if(r.error && !r.info.hasOverview) return '<span class="na">–</span>';
+  const c=r.code; const title=esc(c.reasons.join(" "));
+  if(c.state==="ja") return '<span class="ja" title="'+title+'">ja</span>';
+  if(c.state==="nein") return '<span class="nein" title="'+title+'">nein</span>';
+  return '<span class="na" title="'+title+'">–</span>';
+}
+function redCell(r){
+  if(r.red==null) return '<span class="na">–</span>';
+  return '<span class="pct'+(r.red>RED_LIMIT?" high":"")+'">'+r.red+'&nbsp;%</span>';
+}
+function detailsHtml(r){
+  const i=r.info||{};
+  let h='<dl class="dl">';
+  h+='<dt>'+(r.files&&r.files.length>1?'Dateien':'Datei')+'</dt><dd>'+esc((r.files||[r.file]).join(" + "))+(r.merged?' <span class="hint">(Feiditor-Datei und Escape-Room-Überblick derselben Person zusammengeführt)</span>':'')+'</dd>';
+  if(i.subtitle) h+='<dt>Kurs / Escape-Room</dt><dd>'+esc(i.subtitle)+'</dd>';
+  if(i.overviewName) h+='<dt>Name im Überblick</dt><dd>'+esc(i.overviewName)+'</dd>';
+  if(i.birthDate) h+='<dt>Geburtsdatum</dt><dd>'+esc(i.birthDate)+'</dd>';
+  if(i.code||i.code2) h+='<dt>Bestätigungscode</dt><dd>'+esc(i.code||i.code2)+'</dd>';
+  if(i.completedAt) h+='<dt>Abgeschlossen am</dt><dd>'+esc(i.completedAt)+'</dd>';
+  if(i.summary) h+='<dt>Escape-Room</dt><dd>'+esc(i.summary)+'</dd>';
+  if(r.tasks.length) h+='<dt>Feiditor-Texte</dt><dd>'+r.tasks.map(t=>'Nr. '+t.nr+': '+t.chars+' Zeichen').join(' · ')+'</dd>';
+  h+='</dl>';
+  if(r.error) h+='<p class="errtext">'+esc(r.error)+'</p>';
+  if(r.code.reasons.length) h+='<p><b>Code-Prüfung:</b></p><ul class="reasons">'+r.code.reasons.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>';
+  if(r.grade.state==="done") h+='<p><b>Begründungen der KI:</b></p><ul class="just">'+r.grade.results.map(x=>'<li><b>Feiditor-Nr. '+x.nr+' – '+esc(x.note)+':</b> '+esc(x.begruendung||"")+'</li>').join("")+'</ul>';
+  if(r.grade.state==="done" && r.grade.model) h+='<p class="hint">Bewertet mit '+esc(r.grade.model)+'.</p>';
+  return h;
+}
+const openDetails=new Set();
+function renderTable(){
+  const tb=$("tbody"); const list=sortedViews(); let html="";
+  list.forEach(r=>{
+    const idx=r.idx;
+    if(r.error && !r.vn && !r.nn){
+      html+='<tr class="errrow main" data-idx="'+idx+'"><td colspan="5">'+esc(r.file)+' – '+esc(r.error)+'</td></tr>';
+      return;
+    }
+    html+='<tr class="main'+(openDetails.has(idx)?" open":"")+'" data-idx="'+idx+'" title="Details anzeigen">'
+      +'<td>'+esc(r.nn)+'</td><td>'+esc(r.vn)+'</td>'
+      +'<td class="num">'+codeCell(r)+'</td>'
+      +'<td class="num">'+redCell(r)+'</td>'
+      +'<td>'+gradeCell(r)+'</td></tr>';
+    if(openDetails.has(idx)) html+='<tr class="details" data-for="'+idx+'"><td colspan="5">'+detailsHtml(r)+'</td></tr>';
+  });
+  tb.innerHTML=html;
+  tb.querySelectorAll("tr.main").forEach(tr=>tr.addEventListener("click",(e)=>{
+    if(e.target.closest("a")) return;
+    const idx=parseInt(tr.dataset.idx,10);
+    if(openDetails.has(idx)) openDetails.delete(idx); else openDetails.add(idx);
+    renderTable();
+  }));
+  tb.querySelectorAll("a.open-conn").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();showConnPanel(true);}));
+  tb.querySelectorAll("a.retry").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();const idx=parseInt(a.closest("tr").dataset.idx,10);gradeRow(rows[idx]).then(renderTable);}));
+  updateSummary();
+}
+function updateSummary(){
+  const vs=buildViews();
+  const ok=vs.filter(r=>!r.error);
+  const ja=vs.filter(r=>r.code.state==="ja").length, nein=vs.filter(r=>r.code.state==="nein").length;
+  const high=vs.filter(r=>r.red!=null&&r.red>RED_LIMIT).length, errs=vs.length-ok.length;
+  const pend=rows.filter(r=>r.grade.state==="pending").length, idle=rows.filter(r=>r.grade.state==="idle"||r.grade.state==="error").length;
+  let s=rows.length?(rows.length+" Datei"+(rows.length===1?"":"en")+(vs.length!==rows.length?" ("+vs.length+" Zeilen)":"")+" · Code passt: "+ja+" · passt nicht: "+nein+" · über "+RED_LIMIT+" % rot: "+high+(errs?" · nicht lesbar: "+errs:"")+(pend?" · KI-Bewertung läuft ("+pend+")":"")):"Noch keine Dateien geladen.";
+  $("batchsum").textContent=s;
+  $("grade-btn").disabled=!(idle>0);
+  $("grade-btn").textContent=rows.some(r=>r.grade.state==="done"||r.grade.state==="error")?"KI-Bewertung für offene Zeilen starten":"KI-Bewertung starten";
+  $("clear-btn").disabled=!rows.length;
+}
+
+/* ---------------- Dateien einlesen ---------------- */
+let busy=false;
+async function handleFiles(list){
+  const files=Array.prototype.slice.call(list||[]).filter(f=>/\.pdf$/i.test(f.name)||f.type==="application/pdf");
+  if(!files.length) return;
+  busy=true; $("batchsum").textContent="Lese "+files.length+" Datei"+(files.length===1?"":"en")+" …";
+  for(const f of files){
+    const r=await analyzeFile(f);
+    rows.push(r);
+    renderTable();
+  }
+  busy=false;
+  renderTable();
+  if(hasKey()) gradeAll();
+}
+$("pdf-input").addEventListener("change",e=>{handleFiles(e.target.files); e.target.value="";});
+const drop=$("drop");
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over");}));
+drop.addEventListener("drop",e=>{handleFiles(e.dataTransfer.files);});
+$("clear-btn").addEventListener("click",()=>{ rows=[]; openDetails.clear(); renderTable(); });
+$("grade-btn").addEventListener("click",()=>{ if(!hasKey()){ showConnPanel(true); return; } gradeAll(); });
+
+/* ---------------- Claude-Verbindung ---------------- */
+function getKey(){ try{ return localStorage.getItem(KEY_STORE)||""; }catch(e){ return ""; } }
+function hasKey(){ return !!getKey(); }
+function setKey(k){ try{ if(k) localStorage.setItem(KEY_STORE,k); else localStorage.removeItem(KEY_STORE); }catch(e){} }
+function apiHeaders(key){
+  return {"content-type":"application/json","x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"};
+}
+function connState(state,text){
+  const dot=$("conn-dot"); dot.className="dot"+(state==="on"?" on":state==="bad"?" bad":"");
+  $("conn-label").textContent=text;
+}
+function showConnPanel(show){ $("conn-panel").classList.toggle("hidden",!show); if(show) setTimeout(()=>$("api-key").focus(),30); }
+function refreshConn(){
+  const k=getKey();
+  if(!k){ connState("off","Claude: nicht verbunden"); return; }
+  connState("on","Claude: verbunden (…"+k.slice(-4)+")");
+}
+async function testKey(key){
+  const r=await fetch(MODELS_URL,{method:"GET",headers:{"x-api-key":key,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"}});
+  if(r.status===401||r.status===403) throw new Error("Der Schlüssel wurde von Anthropic abgelehnt (HTTP "+r.status+").");
+  if(!r.ok) throw new Error("Unerwartete Antwort von Anthropic (HTTP "+r.status+").");
+  return true;
+}
+$("conn-chip").addEventListener("click",()=>showConnPanel($("conn-panel").classList.contains("hidden")));
+$("key-save").addEventListener("click",async()=>{
+  const k=$("api-key").value.trim(); const st=$("conn-status");
+  if(!k){ st.className="status bad"; st.textContent="Bitte einen API-Schlüssel eintragen."; return; }
+  st.className="status"; st.innerHTML='<span class="spinner"></span>Verbindung wird getestet …';
+  $("key-save").disabled=true;
+  try{
+    await testKey(k);
+    setKey(k); $("api-key").value=""; refreshConn();
+    st.className="status ok"; st.textContent="Verbunden. Der Schlüssel ist jetzt in diesem Browser gespeichert.";
+    renderTable(); if(rows.some(r=>r.grade.state==="idle")) gradeAll();
+  }catch(e){
+    st.className="status bad"; st.textContent=(e instanceof TypeError)?"Verbindung fehlgeschlagen (Netzwerk oder Browser blockiert die Anfrage).":e.message;
+  }finally{ $("key-save").disabled=false; }
+});
+$("key-remove").addEventListener("click",()=>{ setKey(""); refreshConn(); $("conn-status").className="status"; $("conn-status").textContent="Schlüssel aus diesem Browser entfernt."; renderTable(); });
+$("api-key").addEventListener("keydown",e=>{ if(e.key==="Enter"){ e.preventDefault(); $("key-save").click(); } });
+
+/* ---------------- KI-Bewertung ---------------- */
+const SYSTEM_PROMPT=
+`Du bist eine erfahrene Lehrkraft an einer deutschen Schule und bewertest schriftliche Antworten von Schüler:innen auf Reflexionsaufgaben ("Feiditor-Aufgaben"). Die Antworten entstanden direkt im Anschluss an einen digitalen Escape-Room zum jeweiligen Unterrichtsthema; die Kursangabe nennt Fach und Jahrgang.
+
+Ordne jede Antwort genau einem Leistungsbereich zu: "sehr gut", "gut", "befriedigend", "ausreichend", "mangelhaft" oder "ungenügend".
+
+Maßstab (angelehnt an die KMK-Notendefinitionen):
+- sehr gut: Die Aufgabe wird vollständig, fachlich richtig und differenziert bearbeitet – in eigenen Worten, mit passenden Beispielen oder Begründungen und klar strukturiert.
+- gut: Die Aufgabe wird vollständig und im Wesentlichen richtig bearbeitet; nur kleinere Ungenauigkeiten oder etwas geringe Tiefe.
+- befriedigend: Die Aufgabe wird im Großen und Ganzen bearbeitet; das Verständnis ist erkennbar, aber es gibt Lücken, Oberflächlichkeit oder einzelne Fehler.
+- ausreichend: Die Aufgabe wird nur teilweise bearbeitet; Verständnis ist mit Mängeln erkennbar, wichtige geforderte Aspekte fehlen.
+- mangelhaft: Die Antwort geht kaum auf die Aufgabe ein oder enthält gravierende inhaltliche Fehler; nur bruchstückhafte Grundkenntnisse.
+- ungenügend: Keine Antwort, nur die abgeschriebene Aufgabenstellung, eine inhaltsleere oder völlig themenfremde Antwort.
+
+Beachte:
+- Bewerte altersangemessen für die genannte Jahrgangsstufe und das Fach.
+- Bewerte primär den Inhalt: Verständnis, Vollständigkeit bezogen auf alle Teilaufgaben, fachliche Richtigkeit, eigene Beispiele und Begründungen. Sprache und Rechtschreibung fließen nur nachrangig ein, außer der Text ist unverständlich.
+- Nutze die Lösungserläuterungen als fachliche Referenz, verlange aber keine wörtliche Übereinstimmung; eigene richtige Gedanken sind gleichwertig.
+- Eine fehlende oder leere Antwort ist immer "ungenügend".
+- Sehr kurze Antworten (ein oder zwei Stichworte) sind in der Regel höchstens "ausreichend", wenn die Aufgabe eine Erklärung verlangt.
+- Begründe jede Einordnung in ein bis zwei knappen Sätzen auf Deutsch, adressiert an die Lehrkraft.
+- Antworte ausschließlich im vorgegebenen JSON-Format.`;
+
+const GRADE_SCHEMA={
+  type:"object",
+  properties:{
+    bewertungen:{
+      type:"array",
+      items:{
+        type:"object",
+        properties:{
+          aufgabe:{type:"integer",description:"Nummer der Feiditor-Aufgabe"},
+          note:{type:"string",enum:GRADES},
+          begruendung:{type:"string",description:"Ein bis zwei Sätze Begründung für die Lehrkraft"}
+        },
+        required:["aufgabe","note","begruendung"],
+        additionalProperties:false
+      }
+    }
+  },
+  required:["bewertungen"],
+  additionalProperties:false
+};
+
+function buildUserMessage(row){
+  const i=row.info||{};
+  let s="Kurs / Kontext: "+(i.subtitle||"unbekannt (Feiditor ohne Escape-Room)")+"\n\n";
+  s+="Aufgaben und Antworten (anonymisiert):\n";
+  row.tasks.forEach(t=>{
+    s+="\n### Feiditor-Nr. "+t.nr+"\n";
+    s+="Aufgabenstellung: "+(t.task||(t.free?"keine Aufgabenstellung vorhanden (freier Text – bewerte den Text nach inhaltlicher und sprachlicher Qualität)":"nicht rekonstruierbar"))+"\n";
+    s+="Antwort:\n<<<\n"+(t.answer||"(keine Antwort)")+"\n>>>\n";
+  });
+  s+="\nBewerte jede der "+row.tasks.length+" Aufgaben (Nummern: "+row.tasks.map(t=>t.nr).join(", ")+").";
+  return s;
+}
+function buildRequest(row){
+  const i=row.info||{};
+  const system=[{type:"text",text:SYSTEM_PROMPT}];
+  system.push({type:"text",text:"Lösungserläuterungen aus dem Escape-Room (fachliche Referenz):\n"+(i.notes||"keine vorhanden"),cache_control:{type:"ephemeral"}});
+  return {
+    model:MODEL,
+    max_tokens:16000,
+    system,
+    messages:[{role:"user",content:buildUserMessage(row)}],
+    output_config:{effort:"high",format:{type:"json_schema",schema:GRADE_SCHEMA}}
+  };
+}
+const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
+async function callClaude(body){
+  const key=getKey(); if(!key) throw new Error("Kein API-Schlüssel hinterlegt.");
+  let lastErr=null;
+  for(let attempt=0;attempt<4;attempt++){
+    let r;
+    try{ r=await fetch(API_URL,{method:"POST",headers:apiHeaders(key),body:JSON.stringify(body)}); }
+    catch(e){ lastErr=new Error("Netzwerkfehler – Anfrage an api.anthropic.com nicht möglich."); await sleep(1500*(attempt+1)); continue; }
+    if(r.status===429||r.status===529||r.status>=500){
+      const ra=parseFloat(r.headers.get("retry-after")||"");
+      const wait=isFinite(ra)&&ra>0?Math.min(ra*1000,30000):Math.min(2000*Math.pow(2,attempt),20000);
+      lastErr=new Error(r.status===429?"Rate-Limit erreicht (HTTP 429).":r.status===529?"Anthropic ist überlastet (HTTP 529).":"Serverfehler (HTTP "+r.status+").");
+      await sleep(wait); continue;
+    }
+    let data=null; try{ data=await r.json(); }catch(e){}
+    if(!r.ok){
+      const msg=(data&&data.error&&data.error.message)?data.error.message:("HTTP "+r.status);
+      if(r.status===401) throw new Error("API-Schlüssel ungültig (HTTP 401).");
+      throw new Error(msg);
+    }
+    return data;
+  }
+  throw lastErr||new Error("Anfrage fehlgeschlagen.");
+}
+function parseGradeResponse(data,row){
+  if(data.stop_reason==="refusal") throw new Error("Die KI hat die Bewertung abgelehnt (Sicherheitsfilter).");
+  if(data.stop_reason==="max_tokens") throw new Error("Antwort der KI wurde abgeschnitten (max_tokens).");
+  const blocks=Array.isArray(data.content)?data.content.filter(b=>b.type==="text"&&b.text):[];
+  if(!blocks.length) throw new Error("Leere Antwort der KI.");
+  let obj; try{ obj=JSON.parse(blocks[blocks.length-1].text); }catch(e){ throw new Error("Antwort der KI war kein gültiges JSON."); }
+  const map=new Map(); (obj.bewertungen||[]).forEach(b=>{ if(GRADES.includes(b.note)) map.set(Number(b.aufgabe),b); });
+  return row.tasks.map(t=>{
+    const b=map.get(t.nr);
+    if(!b) return {nr:t.nr,note:"ungenügend",begruendung:"Von der KI nicht bewertet – ohne Bewertung als ungenügend eingeordnet."};
+    return {nr:t.nr,note:b.note,begruendung:b.begruendung||""};
+  });
+}
+async function gradeRow(row){
+  if(!row.tasks.length){ row.grade={state:"na"}; return; }
+  // leere Antworten deterministisch: ungenügend – ohne KI
+  const nonEmpty=row.tasks.filter(t=>t.chars>0);
+  if(!nonEmpty.length){
+    row.grade={state:"done",model:"Regel (keine Antworten)",results:row.tasks.map(t=>({nr:t.nr,note:"ungenügend",begruendung:"Keine Antwort vorhanden."}))};
+    return;
+  }
+  row.grade={state:"pending"}; renderTable();
+  try{
+    const sub={...row,tasks:nonEmpty};
+    const data=await callClaude(buildRequest(sub));
+    const res=parseGradeResponse(data,sub);
+    const byNr=new Map(res.map(x=>[x.nr,x]));
+    row.grade={state:"done",model:data.model||MODEL,results:row.tasks.map(t=>t.chars>0?byNr.get(t.nr):{nr:t.nr,note:"ungenügend",begruendung:"Keine Antwort vorhanden."})};
+  }catch(e){ row.grade={state:"error",message:e.message||String(e)}; }
+}
+let grading=false, gradeMore=false;
+async function gradeAll(){
+  if(grading){ gradeMore=true; return; }   // läuft schon: neue Zeilen werden nach der aktuellen Runde aufgegriffen
+  grading=true;
+  try{
+    let includeErrors=true;
+    do{
+      gradeMore=false;
+      const queue=rows.filter(r=>r.grade.state==="idle"||(includeErrors&&r.grade.state==="error"));
+      includeErrors=false;
+      let next=0;
+      const worker=async()=>{ while(next<queue.length){ const r=queue[next++]; if(!rows.includes(r)) continue; await gradeRow(r); renderTable(); } };
+      await Promise.all(Array.from({length:Math.min(GRADE_CONCURRENCY,queue.length)},worker));
+    }while(gradeMore || rows.some(r=>r.grade.state==="idle"));
+  }finally{ grading=false; renderTable(); }
+}
+
+/* ---------------- PIN-Sperre ---------------- */
+function unlock(){
+  try{ sessionStorage.setItem(SESSION_FLAG,"1"); }catch(e){}
+  $("screen-pin").classList.remove("active"); $("screen-main").classList.add("active");
+  refreshConn(); renderTable();
+}
+$("pin-form").addEventListener("submit",async(e)=>{
+  e.preventDefault();
+  const v=$("pin").value.trim(); const err=$("pin-err");
+  if(!v){ err.textContent="Bitte PIN eingeben."; return; }
+  const h=await sha256Hex(PIN_SALT+v);
+  if(h===PIN_HASH){ err.textContent=""; unlock(); }
+  else{ err.textContent="Falsche PIN."; $("pin").value=""; const c=$("pin-card"); c.classList.remove("shake"); void c.offsetWidth; c.classList.add("shake"); $("pin").focus(); }
+});
+(function init(){
+  let ok=false; try{ ok=sessionStorage.getItem(SESSION_FLAG)==="1"; }catch(e){}
+  if(ok) unlock(); else setTimeout(()=>$("pin").focus(),40);
+})();
+</script>
+</body>
+</html>
