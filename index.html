@@ -127,7 +127,13 @@
   .just{margin:0; padding-left:18px}
   .just li{margin:4px 0}
   .just b{font-weight:600}
-  .legend{font-size:12.5px; color:var(--muted); margin:10px 0 0}
+  .footnote{font-size:12.5px; color:var(--muted); margin:10px 0 0}
+  @media print{
+    body.feid-open .screen, body.feid-open .copyright{display:none !important}
+    body.feid-open .modal.open{position:static; overflow:visible; background:none; padding:0}
+    body.feid-open .modal .box{box-shadow:none; border:0; max-width:none; padding:0}
+    body.feid-open #feid-close{display:none}
+  }
   .copyright{position:fixed; left:0; right:0; bottom:10px; text-align:center; font-size:11px; letter-spacing:.05em; color:var(--muted); pointer-events:none; z-index:6}
   .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:12.5px; background:var(--soft); border:1px solid var(--line); border-radius:5px; padding:1px 5px}
   .spinner{display:inline-block; width:12px; height:12px; border:2px solid var(--line); border-top-color:var(--accent); border-radius:50%; animation:spin .8s linear infinite; vertical-align:-2px; margin-right:6px}
@@ -220,7 +226,7 @@
         <tbody id="tbody"></tbody>
       </table>
     </div>
-    <p class="legend">Rote Buchstaben = Anteil der im Feiditor rot markierten Zeichen (eingefügt oder ≤ 0,015 s getippt), berechnet wie in der Feiditor-Auswertung. „Code passt?“ prüft, ob der Bestätigungscode zum Geburtsdatum aus dem Escape-Room-Überblick gehört und ob die Namen in Feiditor-Daten und Überblick übereinstimmen. Klick auf eine Zeile zeigt Details und die Begründungen der KI.</p>
+    <p class="footnote">Rote Buchstaben = Anteil der im Feiditor rot markierten Zeichen (eingefügt oder ≤ 0,015 s getippt), berechnet wie in der Feiditor-Auswertung. „Code passt?“ prüft, ob der Bestätigungscode zum Geburtsdatum aus dem Escape-Room-Überblick gehört und ob die Namen in Feiditor-Daten und Überblick übereinstimmen. Klick auf eine Zeile zeigt Details und die Begründungen der KI.</p>
   </div>
 </section>
 
@@ -354,7 +360,6 @@ function computeStats(t,m){
   const pct=(x)=>total?Math.round(x/total*100):0;
   return {total,red,orange,green,redPct:pct(red),orangePct:pct(orange),greenPct:pct(green)};
 }
-function redPercent(p){ return (typeof p.r==="number"&&isFinite(p.r))?p.r:computeStats(p.t||"",p.m||[]).redPct; }
 function splitName(p){
   let vn=str(p.vn).trim(), nn=str(p.nn).trim();
   if(!vn&&!nn){ const n=str(p.n).trim(); const i=n.indexOf(" "); if(i<0) vn=n; else { vn=n.slice(0,i); nn=n.slice(i+1).trim(); } }
@@ -591,12 +596,16 @@ async function analyzeFile(file){
     const sp=splitTasks(payload,escd&&Array.isArray(escd.t)?escd.t:null);
     row.tasks=sp.blocks;
     row.payload={t:payload.t,m:sp.m,f:payload.f,n:payload.n};   // für die Feiditor-Ansicht (Markierungen ggf. nachgebessert, s. remarked)
-    const rFeid=redPercent(payload);
-    row.red=rFeid;
+    // Rot-Anteil immer aus den Tipp-Daten berechnen (wie computeStats im Feiditor); der in der Datei
+    // gespeicherte Wert r dient nur zur Plausibilitätsprüfung
+    const rStored=(typeof payload.r==="number"&&isFinite(payload.r))?payload.r:null;
+    const rOrig=computeStats(payload.t||"",payload.m||[]).redPct;
+    row.red=rOrig;
     if(sp.remarked){ // Aufgabentexte nachträglich als Systemtext: Rot-Anteil ohne sie neu berechnen
       row.red=computeStats(payload.t||"",sp.m).redPct;
-      if(row.red!==rFeid) row.info.redNote="Rot-Anteil ohne die vorbefüllten Aufgabentexte neu berechnet (Wert laut Feiditor-Datei: "+rFeid+" %).";
+      if(row.red!==rOrig) row.info.redNote="Rot-Anteil ohne die vorbefüllten Aufgabentexte neu berechnet (Wert laut Feiditor-Datei: "+(rStored!=null?rStored:rOrig)+" %).";
     }
+    if(rStored!=null && rStored!==rOrig) row.info.redWarn="Der in der Datei gespeicherte Rot-Anteil ("+rStored+" %) stimmt nicht mit den Tipp-Daten überein (berechnet: "+rOrig+" %). Die Datei wurde möglicherweise verändert.";
     row.grade={state:"idle"};
   }
   return row;
@@ -665,13 +674,16 @@ function codeCell(r){
 function redCell(r){
   if(r.red==null) return '<span class="na"'+(r.error?' title="'+esc(r.error)+'"':'')+'>–</span>';
   const cls="pct"+(r.red>RED_LIMIT?" high":"");
-  if(r.row&&r.row.payload) return '<a href="#" class="red-link '+cls+'" data-idx="'+r.idx+'" title="Feiditor-Ansicht öffnen: Text mit farbig markierten Zeichen">'+r.red+'&nbsp;%</a>';
+  const warn=r.info&&r.info.redWarn?" ⚠ "+esc(r.info.redWarn):"";
+  if(r.row&&r.row.payload) return '<a href="#" class="red-link '+cls+'" data-idx="'+r.idx+'" title="Feiditor-Ansicht öffnen: Text mit farbig markierten Zeichen'+warn+'">'+r.red+'&nbsp;%'+(warn?' <span class="nein" aria-label="Warnung">!</span>':'')+'</a>';
   return '<span class="'+cls+'">'+r.red+'&nbsp;%</span>';
 }
 /* ---------------- Feiditor-Ansicht: Text mit Zeichenfarben wie in der Lehrkraft-Auswertung des Feiditors ---------------- */
+const MAX_VIEW_CHARS=200000;   // Schutz vor manipulierten Riesen-Dateien (echte Texte: wenige tausend Zeichen)
 function renderAnalysisHtml(payload,redPct,note,who){
-  const t=payload.t||"", m=payload.m||[], f=payload.f||[];
-  const WS=/\s/; let html="";
+  const tAll=payload.t||"", m=payload.m||[], f=payload.f||[];
+  const truncated=tAll.length>MAX_VIEW_CHARS; const t=truncated?tAll.slice(0,MAX_VIEW_CHARS):tAll;
+  const WS=/\s/; const parts=[];
   for(let i=0;i<t.length;i++){
     const ch=t[i]; const isV=!WS.test(ch);
     const mark=m[i]||["t",-1]; const col=classify(isV,mark[0],mark[1]);
@@ -679,9 +691,10 @@ function renderAnalysisHtml(payload,redPct,note,who){
     if(fl&8){ st+=";font-weight:700;font-size:1.6em"; } else if(fl&1){ st+=";font-weight:700"; }
     if(fl&2) st+=";font-style:italic";
     if(fl&4) st+=";text-decoration:underline";
-    html+='<span style="'+st+'">'+esc(ch)+'</span>';
+    parts.push('<span style="'+st+'">'+esc(ch)+'</span>');
   }
-  const s=computeStats(t,m);
+  const html=parts.join("")+(truncated?'<p class="errtext">… Anzeige auf die ersten '+MAX_VIEW_CHARS.toLocaleString("de-DE")+' Zeichen gekürzt.</p>':'');
+  const s=computeStats(tAll,m);
   const rp=(typeof redPct==="number"&&isFinite(redPct))?redPct:s.redPct;
   const badge='<div class="redbadge'+(rp>RED_LIMIT?" high":"")+'">Rot-Anteil: '+rp+' %</div>';
   const legend=
@@ -695,23 +708,44 @@ function renderAnalysisHtml(payload,redPct,note,who){
   const head='<div class="nmeta">Verfasser:in — '+esc(who||payload.n||"")+'</div>';
   return head+badge+(note?'<p class="hint">'+esc(note)+'</p>':'')+legend+stat+'<div class="analysis">'+html+'</div>';
 }
-let feidLastFocus=null;
+let feidLastFocus=null, feidLastIdx=null;
+function feidOpen(){ return $("feid-modal").classList.contains("open"); }
 function openFeiditorView(row){
   if(!row||!row.payload) return;
-  feidLastFocus=document.activeElement;
+  feidLastFocus=document.activeElement; feidLastIdx=rows.indexOf(row);
+  const notes=[row.info&&row.info.redNote,row.info&&row.info.redWarn].filter(Boolean).join(" ");
   $("feid-sub").textContent=(row.file?row.file+" – ":"")+"Schreib-Auswertung wie in der Lehrkraft-Ansicht des Feiditors.";
-  $("feid-body").innerHTML=renderAnalysisHtml(row.payload,row.red,row.info&&row.info.redNote,(row.vn+" "+row.nn).trim());
-  $("feid-modal").classList.add("open"); $("feid-modal").scrollTop=0; document.body.style.overflow="hidden";
+  $("feid-body").innerHTML=renderAnalysisHtml(row.payload,row.red,notes,(row.vn+" "+row.nn).trim());
+  $("feid-modal").classList.add("open"); $("feid-modal").scrollTop=0;
+  document.body.style.overflow="hidden"; document.body.classList.add("feid-open");
+  try{ $("screen-main").inert=true; }catch(e){}   // Hintergrund für Tastatur und Screenreader sperren
   setTimeout(()=>$("feid-close").focus(),30);
 }
 function closeFeiditorView(){
-  if(!$("feid-modal").classList.contains("open")) return;
-  $("feid-modal").classList.remove("open"); document.body.style.overflow="";
-  if(feidLastFocus&&feidLastFocus.focus){ try{ feidLastFocus.focus({preventScroll:true}); }catch(e){} }
+  if(!feidOpen()) return;
+  $("feid-modal").classList.remove("open"); document.body.style.overflow=""; document.body.classList.remove("feid-open");
+  try{ $("screen-main").inert=false; }catch(e){}
+  // Fokus zurück auf den Prozent-Link – auch wenn die Tabelle zwischenzeitlich neu aufgebaut wurde
+  let target=(feidLastIdx!=null)?document.querySelector('a.red-link[data-idx="'+feidLastIdx+'"]'):null;
+  if(!target && feidLastFocus && document.contains(feidLastFocus)) target=feidLastFocus;
+  if(target&&target.focus){ try{ target.focus({preventScroll:true}); }catch(e){} }
 }
 $("feid-close").addEventListener("click",closeFeiditorView);
-$("feid-modal").addEventListener("click",(e)=>{ if(e.target===$("feid-modal")) closeFeiditorView(); });
-document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closeFeiditorView(); });
+let feidBackdropDown=false;   // Klick neben die Box schließt nur, wenn auch das Drücken dort begann (Textauswahl bleibt erhalten)
+$("feid-modal").addEventListener("mousedown",(e)=>{ feidBackdropDown=(e.target===$("feid-modal")); });
+$("feid-modal").addEventListener("click",(e)=>{ if(e.target===$("feid-modal") && feidBackdropDown) closeFeiditorView(); feidBackdropDown=false; });
+document.addEventListener("keydown",(e)=>{
+  if(!feidOpen()) return;
+  if(e.key==="Escape"){ closeFeiditorView(); return; }
+  if(e.key==="Tab"){ // Fokus bleibt im Dialog
+    const f=Array.from($("feid-modal").querySelectorAll('button,[href],select,input,textarea,[tabindex]:not([tabindex="-1"])')).filter(x=>!x.disabled);
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1], a=document.activeElement;
+    if(!$("feid-modal").contains(a)){ e.preventDefault(); first.focus(); }
+    else if(e.shiftKey && a===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && a===last){ e.preventDefault(); first.focus(); }
+  }
+});
 function detailsHtml(r){
   const i=r.info||{};
   let h='<div class="detbox"><dl class="dl">';
@@ -727,6 +761,7 @@ function detailsHtml(r){
   if(r.error) h+='<p class="errtext">'+esc(r.error)+'</p>';
   if(r.code.reasons.length) h+='<p><b>Code-Prüfung:</b></p><ul class="reasons">'+r.code.reasons.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>';
   if(i.redNote) h+='<p class="hint">'+esc(i.redNote)+'</p>';
+  if(i.redWarn) h+='<p class="errtext">'+esc(i.redWarn)+'</p>';
   if(r.grade.state==="done") h+='<p><b>Begründungen der KI:</b></p><ul class="just">'+r.grade.results.map(x=>'<li><b>Feiditor-Nr. '+x.nr+' – '+esc(x.note||"nicht bewertet")+':</b> '+esc(x.begruendung||"")+'</li>').join("")+'</ul>';
   if(r.grade.state==="done" && r.grade.model) h+='<p class="hint">Bewertet mit '+esc(r.grade.model)+'.</p>';
   return h+'</div>';
