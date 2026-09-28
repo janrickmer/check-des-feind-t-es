@@ -128,13 +128,14 @@
     <p class="brand">Check des Feind(t)es</p>
     <h1>PIN eingeben</h1>
     <p class="sub">Auswertung der Feiditor- und Escape-Room-Abgaben. Bitte gib die PIN ein.</p>
-    <form id="pin-form" autocomplete="off">
+    <form id="pin-form" autocomplete="off" onsubmit="return false">
       <div class="field">
         <label for="pin">PIN</label>
         <input type="password" id="pin" inputmode="numeric" autocomplete="off" spellcheck="false" autofocus>
       </div>
       <p class="err" id="pin-err"></p>
-      <button class="btn block" type="submit">Öffnen</button>
+      <noscript><p class="err">Diese Seite benötigt JavaScript.</p></noscript>
+      <button class="btn block" type="submit" id="pin-btn">Öffnen</button>
     </form>
   </div>
 </section>
@@ -199,6 +200,15 @@
 
 <div class="copyright">Copyright Jan-Rickmer Feindt</div>
 
+<script>
+/* Frühe Fehleranzeige: Wenn das Hauptskript nicht geladen werden kann (alter Browser), soll das sichtbar sein. */
+(function(){
+  var pending=null;
+  function show(msg){ var el=document.getElementById("pin-err"); if(el){ el.textContent=msg; } else { pending=msg; } }
+  window.addEventListener("error",function(e){ if(e&&e.message&&/SyntaxError|Unexpected|Invalid regular expression/i.test(String(e.message))) show("Die Seite konnte in diesem Browser nicht gestartet werden ("+e.message+"). Bitte einen aktuellen Browser verwenden."); });
+  document.addEventListener("DOMContentLoaded",function(){ if(pending) show(pending); });
+})();
+</script>
 <script>
 "use strict";
 /* ====================================================================== *
@@ -942,13 +952,18 @@ function unlock(hint){
   refreshConn(); renderTable(); setTopbarHeight();
   if(hint){ showConnPanel(true); const st=$("conn-status"); st.className="status bad"; st.textContent=hint; }
 }
+/* Ohne sicheren Kontext (https, localhost oder Datei) gibt es kein crypto.subtle – dann klar sagen, woran es liegt */
+const INSECURE_MSG="Diese Seite muss über eine sichere Verbindung geöffnet werden (https://…), sonst stellt der Browser die nötigen Verschlüsselungsfunktionen nicht bereit. Bitte die Adresse mit https:// aufrufen bzw. in den GitHub-Pages-Einstellungen „Enforce HTTPS“ aktivieren.";
+function cryptoAvailable(){ return !!(window.crypto && window.crypto.subtle && typeof window.crypto.subtle.digest==="function"); }
+if(!cryptoAvailable()){ $("pin-err").textContent=INSECURE_MSG; }
 let pinBusy=false;
 $("pin-form").addEventListener("submit",async(e)=>{
   e.preventDefault();
   if(pinBusy) return;
   const v=$("pin").value.trim(); const err=$("pin-err");
+  if(!cryptoAvailable()){ err.textContent=INSECURE_MSG; return; }
   if(!v){ err.textContent="Bitte PIN eingeben."; return; }
-  pinBusy=true; err.textContent="";
+  pinBusy=true; err.textContent=""; $("pin-btn").disabled=true; $("pin-btn").textContent="Prüfe …";
   try{
     let hint="";
     let legacy=""; try{ legacy=localStorage.getItem(KEY_STORE_LEGACY)||""; }catch(e){}
@@ -964,7 +979,9 @@ $("pin-form").addEventListener("submit",async(e)=>{
       try{ await storeKey(legacy,currentPin); apiKeyMem=legacy; localStorage.removeItem(KEY_STORE_LEGACY); }catch(e){}
     }
     unlock(hint);
-  }finally{ pinBusy=false; }
+  }catch(ex){
+    err.textContent="Die PIN-Prüfung ist fehlgeschlagen: "+((ex&&ex.message)||ex)+". "+(cryptoAvailable()?"Bitte die Seite neu laden.":INSECURE_MSG);
+  }finally{ pinBusy=false; $("pin-btn").disabled=false; $("pin-btn").textContent="Öffnen"; }
 });
 setTimeout(()=>$("pin").focus(),40);
 </script>
