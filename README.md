@@ -15,8 +15,11 @@ direkt im Browser aus und zeigt eine Tabelle:
 | Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von Google Gemini über die Gemini-API (Modell wählbar; voreingestellt das neueste stabile Flash-Modell) |
 
 Ein Klick auf eine Zeile zeigt Details (Kurs, Geburtsdatum, Code, Abschlusszeit, Gründe der
-Code-Prüfung, Begründungen der KI). Eine reine Feiditor-Datei und der Überblick derselben
-Person werden automatisch zu einer Zeile zusammengeführt.
+Code-Prüfung, Begründungen der KI). Ein Klick auf die Prozentzahl öffnet die Feiditor-Ansicht:
+der entschlüsselte Text mit jedem Zeichen so gefärbt wie in der Lehrkraft-Auswertung des Feiditors
+(rot = eingefügt oder ≤ 0,015 s, orange = 0,015–0,07 s, grün = langsamer getippt, grau =
+vorbefüllter Aufgabentext), samt Legende und Statistik. Eine reine Feiditor-Datei und der
+Überblick derselben Person werden automatisch zu einer Zeile zusammengeführt.
 
 ## Einrichtung
 

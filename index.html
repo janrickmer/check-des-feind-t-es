@@ -93,6 +93,23 @@
   .nein{color:var(--red); font-weight:800}
   .na{color:var(--muted)}
   .pct.high{color:var(--red); font-weight:800}
+  a.red-link{color:inherit; text-decoration:underline dotted; text-underline-offset:3px; cursor:pointer}
+  a.red-link:hover{text-decoration-style:solid}
+  /* Feiditor-Ansicht (Overlay) – Darstellung wie in der Lehrkraft-Auswertung des Feiditors */
+  .modal{position:fixed; inset:0; background:rgba(34,31,26,.45); display:none; z-index:30; overflow:auto; padding:30px 16px}
+  .modal.open{display:block}
+  .modal .box{max-width:920px; margin:0 auto; background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:26px 28px 34px; box-shadow:0 30px 80px -30px rgba(0,0,0,.45)}
+  .modal .mhead{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:6px}
+  .modal h2{margin:0}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; margin:20px 0 14px; font-size:13.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .sw{width:13px; height:13px; border-radius:3px; display:inline-block}
+  .stat{font-size:13px; color:var(--muted); margin:0 0 16px; font-variant-numeric:tabular-nums}
+  .analysis{background:var(--paper2); border:1px solid var(--line); border-radius:10px; padding:30px 34px; font-family:var(--serif); font-size:17.5px; line-height:1.85; white-space:pre-wrap; word-wrap:break-word; overflow-wrap:anywhere}
+  .nmeta{font-family:var(--sans); font-size:12.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:14px}
+  .redbadge{display:inline-block; font-family:var(--sans); font-size:14px; font-weight:600; letter-spacing:.02em; background:var(--paper2); border:1px solid var(--line); border-radius:9px; padding:8px 14px; margin:0 0 6px; font-variant-numeric:tabular-nums}
+  .redbadge.high{color:#b3261e; border-color:#b3261e; font-weight:800}
+  @media (max-width:640px){ .modal{padding:12px 8px} .modal .box{padding:18px 14px 24px} .analysis{padding:18px 16px; font-size:16px} }
   .grades{font-family:var(--sans); font-size:14px; line-height:1.55; white-space:nowrap}
   .grades .g{display:block}
   .grades .g i{font-style:normal; color:var(--muted)}
@@ -206,6 +223,18 @@
     <p class="legend">Rote Buchstaben = Anteil der im Feiditor rot markierten Zeichen (eingefügt oder ≤ 0,015 s getippt), berechnet wie in der Feiditor-Auswertung. „Code passt?“ prüft, ob der Bestätigungscode zum Geburtsdatum aus dem Escape-Room-Überblick gehört und ob die Namen in Feiditor-Daten und Überblick übereinstimmen. Klick auf eine Zeile zeigt Details und die Begründungen der KI.</p>
   </div>
 </section>
+
+<!-- Feiditor-Lehrkraft-Ansicht für eine Zeile -->
+<div class="modal" id="feid-modal" role="dialog" aria-modal="true" aria-labelledby="feid-title">
+  <div class="box">
+    <div class="mhead">
+      <h2 id="feid-title">Feiditor-Ansicht</h2>
+      <button type="button" class="btn small ghost" id="feid-close">Schließen</button>
+    </div>
+    <p class="sub" id="feid-sub">Schreib-Auswertung wie in der Lehrkraft-Ansicht des Feiditors.</p>
+    <div id="feid-body"></div>
+  </div>
+</div>
 
 <div class="copyright">Copyright Jan-Rickmer Feindt</div>
 
@@ -561,6 +590,7 @@ async function analyzeFile(file){
   if(payload){
     const sp=splitTasks(payload,escd&&Array.isArray(escd.t)?escd.t:null);
     row.tasks=sp.blocks;
+    row.payload={t:payload.t,m:sp.m,f:payload.f,n:payload.n};   // für die Feiditor-Ansicht (Markierungen ggf. nachgebessert, s. remarked)
     const rFeid=redPercent(payload);
     row.red=rFeid;
     if(sp.remarked){ // Aufgabentexte nachträglich als Systemtext: Rot-Anteil ohne sie neu berechnen
@@ -634,8 +664,54 @@ function codeCell(r){
 }
 function redCell(r){
   if(r.red==null) return '<span class="na"'+(r.error?' title="'+esc(r.error)+'"':'')+'>–</span>';
-  return '<span class="pct'+(r.red>RED_LIMIT?" high":"")+'">'+r.red+'&nbsp;%</span>';
+  const cls="pct"+(r.red>RED_LIMIT?" high":"");
+  if(r.row&&r.row.payload) return '<a href="#" class="red-link '+cls+'" data-idx="'+r.idx+'" title="Feiditor-Ansicht öffnen: Text mit farbig markierten Zeichen">'+r.red+'&nbsp;%</a>';
+  return '<span class="'+cls+'">'+r.red+'&nbsp;%</span>';
 }
+/* ---------------- Feiditor-Ansicht: Text mit Zeichenfarben wie in der Lehrkraft-Auswertung des Feiditors ---------------- */
+function renderAnalysisHtml(payload,redPct,note,who){
+  const t=payload.t||"", m=payload.m||[], f=payload.f||[];
+  const WS=/\s/; let html="";
+  for(let i=0;i<t.length;i++){
+    const ch=t[i]; const isV=!WS.test(ch);
+    const mark=m[i]||["t",-1]; const col=classify(isV,mark[0],mark[1]);
+    const fl=(typeof f[i]==="number")?f[i]:0; let st="color:"+col;
+    if(fl&8){ st+=";font-weight:700;font-size:1.6em"; } else if(fl&1){ st+=";font-weight:700"; }
+    if(fl&2) st+=";font-style:italic";
+    if(fl&4) st+=";text-decoration:underline";
+    html+='<span style="'+st+'">'+esc(ch)+'</span>';
+  }
+  const s=computeStats(t,m);
+  const rp=(typeof redPct==="number"&&isFinite(redPct))?redPct:s.redPct;
+  const badge='<div class="redbadge'+(rp>RED_LIMIT?" high":"")+'">Rot-Anteil: '+rp+' %</div>';
+  const legend=
+    '<div class="legend">'+
+      '<span><i class="sw" style="background:#b3261e"></i>eingefügt oder ≤ 0,015 s getippt</span>'+
+      '<span><i class="sw" style="background:#c2710c"></i>0,015–0,07 s nach vorherigem Zeichen getippt</span>'+
+      '<span><i class="sw" style="background:#1f7a34"></i>&gt; 0,07 s nach vorherigem Zeichen getippt</span>'+
+      '<span><i class="sw" style="background:#9c948a"></i>vorbefüllter Aufgabentext (zählt nicht)</span>'+
+    '</div>';
+  const stat='<p class="stat">Zeichen gesamt: '+s.total+' · rot: '+s.red+' ('+s.redPct+' %) · orange: '+s.orange+' ('+s.orangePct+' %) · grün: '+s.green+' ('+s.greenPct+' %)</p>';
+  const head='<div class="nmeta">Verfasser:in — '+esc(who||payload.n||"")+'</div>';
+  return head+badge+(note?'<p class="hint">'+esc(note)+'</p>':'')+legend+stat+'<div class="analysis">'+html+'</div>';
+}
+let feidLastFocus=null;
+function openFeiditorView(row){
+  if(!row||!row.payload) return;
+  feidLastFocus=document.activeElement;
+  $("feid-sub").textContent=(row.file?row.file+" – ":"")+"Schreib-Auswertung wie in der Lehrkraft-Ansicht des Feiditors.";
+  $("feid-body").innerHTML=renderAnalysisHtml(row.payload,row.red,row.info&&row.info.redNote,(row.vn+" "+row.nn).trim());
+  $("feid-modal").classList.add("open"); $("feid-modal").scrollTop=0; document.body.style.overflow="hidden";
+  setTimeout(()=>$("feid-close").focus(),30);
+}
+function closeFeiditorView(){
+  if(!$("feid-modal").classList.contains("open")) return;
+  $("feid-modal").classList.remove("open"); document.body.style.overflow="";
+  if(feidLastFocus&&feidLastFocus.focus){ try{ feidLastFocus.focus({preventScroll:true}); }catch(e){} }
+}
+$("feid-close").addEventListener("click",closeFeiditorView);
+$("feid-modal").addEventListener("click",(e)=>{ if(e.target===$("feid-modal")) closeFeiditorView(); });
+document.addEventListener("keydown",(e)=>{ if(e.key==="Escape") closeFeiditorView(); });
 function detailsHtml(r){
   const i=r.info||{};
   let h='<div class="detbox"><dl class="dl">';
@@ -688,6 +764,7 @@ function renderTable(){
     tr.addEventListener("keydown",(e)=>{ if(e.target!==tr) return; if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(tr); } });
   });
   tb.querySelectorAll("a.open-conn").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();showConnPanel(true);}));
+  tb.querySelectorAll("a.red-link").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();openFeiditorView(rows[parseInt(a.dataset.idx,10)]);}));
   tb.querySelectorAll("a.retry").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();const idx=parseInt(a.closest("tr").dataset.idx,10);const r=rows[idx];if(r&&r.grade.state!=="pending"){ r.grade={state:"idle"}; renderTable(); gradeAll(false); }}));
   updateSummary();
 }
