@@ -255,7 +255,8 @@ function normName(s){return String(s||"").normalize("NFC").toLowerCase().replace
 /* Namensvergleich, tolerant gegenüber der verlustbehafteten WinAnsi-Schrift der PDF-Seiten:
    Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő, İ …) stehen dort als "?" */
 function namesMatch(a,b){
-  const lossy=(s)=>normName(s).replace(/[^\u0000-ÿ]/gu,"?");
+  // erst verlustbehaftet abbilden (wie die PDF-Schreiber: alles außerhalb Latin-1 -> "?", auch NFD-Kombinationszeichen), dann normalisieren
+  const lossy=(s)=>String(s||"").replace(/[^\u0000-ÿ]/gu,"?").normalize("NFC").toLowerCase().replace(/\s+/g," ").trim();
   if(lossy(a)===lossy(b)) return true;
   const plain=(s)=>normName(s).normalize("NFD").replace(/[̀-ͯ]/g,"");
   const x=plain(a), y=plain(b);
@@ -412,6 +413,7 @@ function splitTasks(payload,escTasks){
   const t=payload.t||""; const WS=/\s/;
   const m=[]; for(let i=0;i<t.length;i++){ const x=(payload.m||[])[i]; m.push(Array.isArray(x)?x.slice():["t",-1]); }
   const isSys=(i)=>m[i][0]==="s"||m[i][0]==="q";
+  const anySys=m.some(x=>x[0]==="s"||x[0]==="q");   // ohne jede Systemmarkierung sind "Aufgabe N"-Zeilen eigene Gliederung des Schülers
   let remarked=false;
   const markSys=(s,e)=>{ for(let i=s;i<e;i++){ if(!WS.test(t[i])&&!isSys(i)){ m[i][0]="s"; remarked=true; } } };
   const lines=[]; let st=0;
@@ -437,7 +439,7 @@ function splitTasks(payload,escTasks){
   if(new Set(nrs).size!==nrs.length) headers.forEach((h,i)=>{ h.nr=i+1; });   // doppelte Nummern -> fortlaufend
   const blocks=[];
   headers.forEach((h,k)=>{
-    const hl=lines[h.li]; if(!h.mixed) markSys(hl.s,hl.e);                      // Kopfzeile ist nie Schülertext
+    const hl=lines[h.li]; if(!h.mixed && anySys) markSys(hl.s,hl.e);            // Kopfzeile der Vorbefüllung ist nie Schülertext
     const from=h.li+1, to=(k+1<headers.length)?headers[k+1].li:lines.length;
     const taskParts=[]; let seenTask=false, bodyStart=from;   // bodyStart = erste Zeile der Antwort
     for(let ai=from;ai<to;ai++){
@@ -450,7 +452,7 @@ function splitTasks(payload,escTasks){
         part=part.replace(/\s+/g," ").trim(); if(part) taskParts.push(part);
         bodyStart=ai; break;
       }
-      if(!h.reliable && !seenTask){ markSys(l.s,l.e); taskParts.push(s); bodyStart=ai+1; break; }   // Markierung verloren: Strukturregel
+      if(!h.reliable && !seenTask && anySys){ markSys(l.s,l.e); taskParts.push(s); bodyStart=ai+1; break; }   // Markierung verloren (Standalone-Escape-Modus): Strukturregel
       bodyStart=ai; break;
     }
     if(bodyStart>to) bodyStart=to;
@@ -558,11 +560,13 @@ function buildViews(){
   // 1. Paare bilden, unabhängig von der Upload-Reihenfolge
   const ovOnly=rows.filter(r=>!r.error && !r.tasks.length && r.info.hasOverview && (r.vn||r.nn));
   const claimed=new Set(); const mateOf=new Map();
+  const ambiguous=new Set();
   rows.forEach(r=>{
     if(r.error || !r.tasks.length || r.code.state!=="none" || !(r.vn||r.nn)) return;
     const name=r.vn+" "+r.nn;
-    const mate=ovOnly.find(o=>o!==r && !claimed.has(o) && namesMatch(o.vn+" "+o.nn,name));
-    if(mate){ claimed.add(mate); mateOf.set(r,mate); }
+    const cands=ovOnly.filter(o=>o!==r && !claimed.has(o) && namesMatch(o.vn+" "+o.nn,name));
+    const twins=rows.filter(x=>x!==r && !x.error && x.tasks.length && x.code.state==="none" && namesMatch(x.vn+" "+x.nn,name)).length;
+    if(cands.length){ claimed.add(cands[0]); mateOf.set(r,cands[0]); if(cands.length>1||twins) ambiguous.add(r); }
   });
   // 2. Anzeige-Zeilen
   const views=[];
@@ -573,6 +577,7 @@ function buildViews(){
     if(mate){
       const info=Object.assign({},r.info,mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true,redNote:r.info.redNote});
       v.info=info; v.code=checkCode(info); v.files=[r.file,mate.file]; v.file=r.file+" + "+mate.file; v.merged=true;
+      if(ambiguous.has(r)) v.code.reasons.push("Hinweis: Mehrere Dateien tragen diesen Namen – die Zuordnung von Feiditor-Datei und Überblick ist nicht eindeutig (Feiditor-Dateien enthalten kein Geburtsdatum). Bitte anhand der Dateinamen in den Details prüfen.");
       if(r.info.nameSplitGuessed && (mate.vn||mate.nn)){ v.vn=mate.vn; v.nn=mate.nn; }   // saubere Namensaufteilung aus dem Überblick
       if(!r.info.notes && mate.info.notes) r.info.notes=mate.info.notes;       // Lösungserläuterungen für die KI
       if(!r.info.subtitle && mate.info.subtitle) r.info.subtitle=mate.info.subtitle;
@@ -663,7 +668,7 @@ function renderTable(){
     tr.addEventListener("keydown",(e)=>{ if(e.target!==tr) return; if(e.key==="Enter"||e.key===" "){ e.preventDefault(); toggle(tr); } });
   });
   tb.querySelectorAll("a.open-conn").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();showConnPanel(true);}));
-  tb.querySelectorAll("a.retry").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();const idx=parseInt(a.closest("tr").dataset.idx,10);gradeRow(rows[idx]).then(renderTable);}));
+  tb.querySelectorAll("a.retry").forEach(a=>a.addEventListener("click",(e)=>{e.preventDefault();const idx=parseInt(a.closest("tr").dataset.idx,10);const r=rows[idx];if(r&&r.grade.state!=="pending"){ r.grade={state:"idle"}; renderTable(); gradeAll(false); }}));
   updateSummary();
 }
 function updateSummary(){
@@ -913,11 +918,11 @@ async function gradeRow(row){
   }catch(e){ row.grade={state:"error",message:e.message||String(e)}; }
 }
 let grading=false, gradeMore=false;
-async function gradeAll(){
+async function gradeAll(retryErrors){
   if(grading){ gradeMore=true; return; }   // läuft schon: neue Zeilen werden nach der aktuellen Runde aufgegriffen
   grading=true; updateSummary();
   try{
-    let includeErrors=true;
+    let includeErrors=(retryErrors!==false);
     do{
       gradeMore=false;
       const queue=rows.filter(r=>r.grade.state==="idle"||(includeErrors&&r.grade.state==="error"));
