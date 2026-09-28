@@ -248,6 +248,17 @@ function b64ToBytes(b64){const bin=atob(b64);const out=new Uint8Array(bin.length
 const CP1252_HI={0x80:"€",0x82:"‚",0x83:"ƒ",0x84:"„",0x85:"…",0x86:"†",0x87:"‡",0x88:"ˆ",0x89:"‰",0x8A:"Š",0x8B:"‹",0x8C:"Œ",0x8E:"Ž",0x91:"‘",0x92:"’",0x93:"“",0x94:"”",0x95:"•",0x96:"–",0x97:"—",0x98:"˜",0x99:"™",0x9A:"š",0x9B:"›",0x9C:"œ",0x9E:"ž",0x9F:"Ÿ"};
 function decodeCp1252(bin){let o="";for(let i=0;i<bin.length;i++){const c=bin.charCodeAt(i);o+=(c>=0x80&&c<=0x9F&&CP1252_HI[c])?CP1252_HI[c]:String.fromCharCode(c);}return o;}
 function normName(s){return String(s||"").normalize("NFC").toLowerCase().replace(/\s+/g," ").trim();}
+/* Namensvergleich, tolerant gegenüber der verlustbehafteten WinAnsi-Schrift der PDF-Seiten:
+   Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő, İ …) stehen dort als "?" */
+function namesMatch(a,b){
+  const lossy=(s)=>normName(s).replace(/[^\u0000-ÿ]/gu,"?");
+  if(lossy(a)===lossy(b)) return true;
+  const plain=(s)=>normName(s).normalize("NFD").replace(/[̀-ͯ]/g,"");
+  const x=plain(a), y=plain(b);
+  if(x.length!==y.length) return false;
+  for(let i=0;i<x.length;i++){ if(x[i]!==y[i] && x[i]!=="?" && y[i]!=="?") return false; }
+  return true;
+}
 function visibleCount(s){let n=0;for(const ch of String(s||""))if(!/\s/.test(ch))n++;return n;}
 function letterCount(s){return (String(s||"").match(/\p{L}/gu)||[]).length;}
 
@@ -256,8 +267,9 @@ async function _key(codeStr,usage){const mat=await crypto.subtle.digest("SHA-256
 async function aesDecrypt(bundle,codeStr){const parts=bundle.split(":");const iv=b64ToBytes(parts[0]);const ct=b64ToBytes(parts[1]);const key=await _key(codeStr,["decrypt"]);const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ct);return new TextDecoder().decode(pt);}
 function kfN(n){return String(n*(0x230+0x220));}   // Feiditor-Code aus der Buchstabenzahl des Vornamens
 async function autoDecrypt(bundle,hintName){
-  const order=[]; const h=letterCount(hintName); if(h>0) order.push(h);
+  const order=[]; const h=letterCount(hintName); if(hintName) order.push(h);
   for(let n=1;n<=60;n++) if(!order.includes(n)) order.push(n);
+  if(!order.includes(0)) order.push(0);   // Vorname ohne Buchstaben
   for(const n of order){
     try{ const json=await aesDecrypt(bundle,kfN(n)); return {payload:JSON.parse(json),n}; }catch(e){}
   }
@@ -375,39 +387,57 @@ function parseOverview(bin){
   return ov;
 }
 
-/* ---------------- Feiditor-Text in Aufgaben zerlegen ---------------- */
+/* ---------------- Feiditor-Text in Aufgaben zerlegen ----------------
+   Vorbefüllung im Escape-Modus: "Aufgabe N" / Aufgabentext / Leerzeilen. Die System-Markierung ("s")
+   ist im eingebetteten Feiditor verlässlich; der Standalone-Feiditor verliert sie ab der ersten
+   Eingabe für alles danach (Leerzeilen werden beim Serialisieren zusammengefasst). Deshalb gilt die
+   Struktur "Kopfzeile + nächste Zeile = Aufgabe" als Rückfallebene, und diese Zeilen werden für die
+   Rot-Anteil-Berechnung nachträglich als Systemtext markiert (remarked). */
+const HEADER_RE=/^\s*Aufgabe\s+(\d+)\s*[:.]?\s*$/;
 function splitTasks(payload,escTasks){
-  const t=payload.t||"", m=payload.m||[];
-  const isSys=(i)=>!!(m[i]&&(m[i][0]==="s"||m[i][0]==="q"));
-  const hasSys=m.some(x=>x&&(x[0]==="s"||x[0]==="q"));
+  const t=payload.t||""; const WS=/\s/;
+  const m=[]; for(let i=0;i<t.length;i++){ const x=(payload.m||[])[i]; m.push(Array.isArray(x)?x.slice():["t",-1]); }
+  const isSys=(i)=>m[i][0]==="s"||m[i][0]==="q";
+  let remarked=false;
+  const markSys=(s,e)=>{ for(let i=s;i<e;i++){ if(!WS.test(t[i])&&!isSys(i)){ m[i][0]="s"; remarked=true; } } };
   const lines=[]; let st=0;
   for(let i=0;i<=t.length;i++){ if(i===t.length||t[i]==="\n"){ lines.push({s:st,e:i}); st=i+1; } }
   const txt=(l)=>t.slice(l.s,l.e);
-  const lineIsSys=(l)=>{ let any=false; for(let i=l.s;i<l.e;i++){ if(/\s/.test(t[i])) continue; any=true; if(!isSys(i)) return false; } return any; };
-  const studentText=(s,e)=>{ let a=""; for(let i=s;i<e;i++){ const ch=t[i]; if(isSys(i)&&!/\s/.test(ch)) continue; a+=ch; } return a.replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); };
+  const sysState=(l)=>{ let any=false, all=true, some=false; for(let i=l.s;i<l.e;i++){ if(WS.test(t[i])) continue; any=true; if(isSys(i)) some=true; else all=false; } return {any,all:any&&all,some}; };
+  const studentText=(s,e)=>{ let a=""; for(let i=s;i<e;i++){ const ch=t[i]; if(isSys(i)&&!WS.test(ch)) continue; a+=ch; } return a.replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); };
   const headers=[];
-  lines.forEach((l,li)=>{ const mm=txt(l).match(/^\s*Aufgabe\s+(\d+)\s*:?\s*$/); if(mm && (!hasSys||lineIsSys(l))) headers.push({li,nr:parseInt(mm[1],10)}); });
+  lines.forEach((l,li)=>{ const mm=txt(l).match(HEADER_RE); if(mm) headers.push({li,nr:parseInt(mm[1],10),reliable:sysState(l).all}); });
   if(!headers.length){
     const answer=studentText(0,t.length);
-    return [{nr:1,task:(escTasks&&escTasks[0])||"",answer,chars:visibleCount(answer),free:true}];
+    return {blocks:[{nr:1,task:(escTasks&&escTasks[0])||"",answer,chars:visibleCount(answer),free:true}],m,remarked};
   }
+  const nrs=headers.map(h=>h.nr);
+  if(new Set(nrs).size!==nrs.length) headers.forEach((h,i)=>{ h.nr=i+1; });   // doppelte Nummern -> fortlaufend
   const blocks=[];
   headers.forEach((h,k)=>{
+    const hl=lines[h.li]; markSys(hl.s,hl.e);                                   // Kopfzeile ist nie Schülertext
     const from=h.li+1, to=(k+1<headers.length)?headers[k+1].li:lines.length;
-    const taskLines=[];
+    const taskParts=[]; let seenTask=false;
     for(let ai=from;ai<to;ai++){
       const l=lines[ai]; const s=txt(l).trim();
-      if(s===""){ if(taskLines.length) break; else continue; }
-      if(hasSys){ if(lineIsSys(l)) taskLines.push(s); else break; }
-      else { if(!taskLines.length) taskLines.push(s); else break; }
+      if(s===""){ if(seenTask) break; else continue; }
+      const ss=sysState(l);
+      if(ss.all){ taskParts.push(s); seenTask=true; continue; }
+      if(ss.some){ // gemischte Zeile: Systemteil = Aufgabe, Rest = Antwort (direkt hinter die Aufgabe getippt)
+        let part=""; for(let i=l.s;i<l.e;i++){ if(isSys(i)||WS.test(t[i])) part+=t[i]; }
+        part=part.replace(/\s+/g," ").trim(); if(part) taskParts.push(part);
+        break;
+      }
+      if(!h.reliable && !seenTask){ markSys(l.s,l.e); taskParts.push(s); }   // Markierung verloren: Strukturregel
+      break;
     }
-    const s=lines[from]?lines[from].s:t.length, e=lines[to-1]?lines[to-1].e:t.length;
-    const answer=(from<to)?studentText(s,e):"";
-    let task=taskLines.join(" ");
+    let answer=(from<to)?studentText(lines[from].s,lines[to-1].e):"";
+    if(k===0){ const pre=studentText(0,hl.s); if(pre) answer=pre+(answer?"\n\n"+answer:""); }   // Text vor der ersten Aufgabe
+    let task=taskParts.join(" ");
     if(!task && escTasks && escTasks[h.nr-1]) task=escTasks[h.nr-1];
     blocks.push({nr:h.nr,task,answer,chars:visibleCount(answer),free:false});
   });
-  return blocks;
+  return {blocks,m,remarked};
 }
 
 /* ---------------- Bestätigungscode prüfen ---------------- */
@@ -430,13 +460,14 @@ function checkCode(info){
       const room=ROOM_MAGIC.find(r=>r.re.test(info.subtitle||""));
       if(room){ if(rest!==room.magic){ ok=false; reasons.push("Der Code passt zum Geburtsdatum, aber nicht zu diesem Escape-Room (Prüfkonstante "+rest+" statt "+room.magic+")."); } }
       else if(!KNOWN_MAGIC.has(rest)){ reasons.push("Hinweis: Prüfkonstante "+rest+" ist keinem bekannten Escape-Room zugeordnet (neuer Escape-Room?). Geburtsdatum und Code passen zueinander."); }
+      else reasons.push("Hinweis: Escape-Room aus der Kurszeile nicht erkannt („"+(info.subtitle||"–")+"“); Prüfkonstante "+rest+" gehört zu einem bekannten Escape-Room.");
     }
   }
   if(info.code && info.code2 && info.code!==info.code2){ ok=false; reasons.push("Der Code im Kopfbereich ("+info.code+") unterscheidet sich vom Code in der Fußzeile ("+info.code2+")."); }
-  if(info.payloadName && info.overviewName && normName(info.payloadName)!==normName(info.overviewName)){
+  if(info.payloadName && info.overviewName && !namesMatch(info.payloadName,info.overviewName)){
     ok=false; reasons.push("Name in den Feiditor-Daten („"+info.payloadName+"“) weicht vom Namen im Escape-Room-Überblick („"+info.overviewName+"“) ab.");
   }
-  if(info.escName && info.overviewName && normName(info.escName)!==normName(info.overviewName)){
+  if(info.escName && info.overviewName && !namesMatch(info.escName,info.overviewName)){
     ok=false; reasons.push("Name in den versteckten Escape-Room-Daten („"+info.escName+"“) weicht vom Namen im Überblick („"+info.overviewName+"“) ab.");
   }
   if(ok && !reasons.length) reasons.push("Bestätigungscode "+code+" passt zum Geburtsdatum "+info.birthDate+(info.overviewName?" von "+info.overviewName:"")+".");
@@ -461,8 +492,14 @@ async function analyzeFile(file){
   if(tm && !payload){ row.error="Tracking-Daten vorhanden, aber nicht entschlüsselbar ("+decErr+")."; }
 
   // Namen: Feiditor-Daten > versteckte Escape-Daten > Überblick
-  let vn="",nn="";
-  if(payload){ const s=splitName(payload); vn=s.vn; nn=s.nn; }
+  let vn="",nn="", nameSplitGuessed=false;
+  if(payload){
+    const s=splitName(payload); vn=s.vn; nn=s.nn;
+    if(!(payload.vn||payload.nn)){ // ältere Feiditor-Version: nur Gesamtname -> Aufteilung aus den Escape-Daten übernehmen
+      nameSplitGuessed=true;
+      if(escd&&(escd.v||escd.n)&&namesMatch((escd.v||"")+" "+(escd.n||""),payload.n||"")){ vn=(escd.v||"").trim(); nn=(escd.n||"").trim(); nameSplitGuessed=false; }
+    }
+  }
   else if(escd&&(escd.v||escd.n)){ vn=(escd.v||"").trim(); nn=(escd.n||"").trim(); }
   else if(ov.name){ const n=ov.name.trim(); const i=n.indexOf(" "); if(i<0) vn=n; else { vn=n.slice(0,i); nn=n.slice(i+1).trim(); } }
   row.vn=vn; row.nn=nn;
@@ -470,13 +507,19 @@ async function analyzeFile(file){
   row.info={
     subtitle:ov.subtitle, birthDate:ov.birthDate, code:ov.code, code2:ov.code2, completedAt:ov.completedAt, summary:ov.summary,
     overviewName:ov.name, payloadName:payload?((vn+" "+nn).trim()):"", escName:escd?(((escd.v||"")+" "+(escd.n||"")).trim()):"",
-    notes:ov.notes, hasTrack:!!tm, hasEsc:!!escd, hasOverview:ov.found, decryptN:null,
+    notes:ov.notes, hasTrack:!!tm, hasEsc:!!escd, hasOverview:ov.found, nameSplitGuessed,
   };
   row.code=checkCode(row.info);
 
   if(payload){
-    row.red=redPercent(payload);
-    row.tasks=splitTasks(payload,escd&&Array.isArray(escd.t)?escd.t:null);
+    const sp=splitTasks(payload,escd&&Array.isArray(escd.t)?escd.t:null);
+    row.tasks=sp.blocks;
+    const rFeid=redPercent(payload);
+    row.red=rFeid;
+    if(sp.remarked){ // Aufgabentexte nachträglich als Systemtext: Rot-Anteil ohne sie neu berechnen
+      row.red=computeStats(payload.t||"",sp.m).redPct;
+      if(row.red!==rFeid) row.info.redNote="Rot-Anteil ohne die vorbefüllten Aufgabentexte neu berechnet (Wert laut Feiditor-Datei: "+rFeid+" %).";
+    }
     row.grade={state:"idle"};
   }
   return row;
@@ -487,23 +530,29 @@ let rows=[];
 /* Anzeige-Zeilen: Eine reine Feiditor-Datei (ohne Code) und ein Escape-Room-Überblick (ohne Feiditor-Texte)
    derselben Person werden zu EINER Zeile zusammengeführt (z. B. Standalone-Feiditor + Überblick-PDF). */
 function buildViews(){
-  const views=[]; const used=new Set();
+  // 1. Paare bilden, unabhängig von der Upload-Reihenfolge
   const ovOnly=rows.filter(r=>!r.error && !r.tasks.length && r.info.hasOverview && (r.vn||r.nn));
+  const claimed=new Set(); const mateOf=new Map();
+  rows.forEach(r=>{
+    if(r.error || !r.tasks.length || r.code.state!=="none" || !(r.vn||r.nn)) return;
+    const name=r.vn+" "+r.nn;
+    const mate=ovOnly.find(o=>o!==r && !claimed.has(o) && namesMatch(o.vn+" "+o.nn,name));
+    if(mate){ claimed.add(mate); mateOf.set(r,mate); }
+  });
+  // 2. Anzeige-Zeilen
+  const views=[];
   rows.forEach((r,idx)=>{
-    if(used.has(r)) return;
+    if(claimed.has(r)) return;
     const v={row:r,idx,nn:r.nn,vn:r.vn,code:r.code,red:r.red,grade:r.grade,info:r.info,tasks:r.tasks,error:r.error,files:[r.file],file:r.file,merged:false};
-    if(!r.error && r.tasks.length && r.code.state==="none" && (r.vn||r.nn)){
-      const key=normName(r.vn+" "+r.nn);
-      const mate=ovOnly.find(o=>o!==r && !used.has(o) && normName(o.vn+" "+o.nn)===key);
-      if(mate){
-        used.add(mate);
-        const info=Object.assign({},mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true});
-        v.info=info; v.code=checkCode(info); v.files=[r.file,mate.file]; v.file=r.file+" + "+mate.file; v.merged=true;
-        if(!r.info.notes && mate.info.notes) r.info.notes=mate.info.notes;       // Lösungserläuterungen für die KI
-        if(!r.info.subtitle && mate.info.subtitle) r.info.subtitle=mate.info.subtitle;
-      }
+    const mate=mateOf.get(r);
+    if(mate){
+      const info=Object.assign({},r.info,mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true,redNote:r.info.redNote});
+      v.info=info; v.code=checkCode(info); v.files=[r.file,mate.file]; v.file=r.file+" + "+mate.file; v.merged=true;
+      if(r.info.nameSplitGuessed && (mate.vn||mate.nn)){ v.vn=mate.vn; v.nn=mate.nn; }   // saubere Namensaufteilung aus dem Überblick
+      if(!r.info.notes && mate.info.notes) r.info.notes=mate.info.notes;       // Lösungserläuterungen für die KI
+      if(!r.info.subtitle && mate.info.subtitle) r.info.subtitle=mate.info.subtitle;
     }
-    used.add(r); views.push(v);
+    views.push(v);
   });
   return views;
 }
@@ -522,8 +571,9 @@ function gradeCell(r){
   if(g.state==="idle") return hasKey()?'<span class="hint">wartet auf KI-Bewertung</span>':'<span class="hint"><a href="#" class="open-conn">Claude verbinden</a>, um die Bewertung zu starten</span>';
   if(g.state==="pending") return '<span class="pending"><span class="spinner"></span>wird bewertet …</span>';
   if(g.state==="error") return '<span class="errtext">Fehler: '+esc(g.message)+'</span> <a href="#" class="retry">erneut</a>';
-  const items=g.results.map((x,i)=>'<span class="g">Feiditor-Nr. '+x.nr+': '+esc(x.note)+(i<g.results.length-1?',':'')+'</span>').join("");
-  return '<span class="grades">'+items+'</span>';
+  const items=g.results.map((x,i)=>'<span class="g">Feiditor-Nr. '+x.nr+': '+(x.note?esc(x.note):'<i>nicht bewertet</i>')+(i<g.results.length-1?',':'')+'</span>').join("");
+  const incomplete=g.results.some(x=>!x.note);
+  return '<span class="grades">'+items+'</span>'+(incomplete?' <a href="#" class="retry">erneut</a>':'');
 }
 function codeCell(r){
   if(r.error && !r.info.hasOverview) return '<span class="na">–</span>';
@@ -550,7 +600,8 @@ function detailsHtml(r){
   h+='</dl>';
   if(r.error) h+='<p class="errtext">'+esc(r.error)+'</p>';
   if(r.code.reasons.length) h+='<p><b>Code-Prüfung:</b></p><ul class="reasons">'+r.code.reasons.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>';
-  if(r.grade.state==="done") h+='<p><b>Begründungen der KI:</b></p><ul class="just">'+r.grade.results.map(x=>'<li><b>Feiditor-Nr. '+x.nr+' – '+esc(x.note)+':</b> '+esc(x.begruendung||"")+'</li>').join("")+'</ul>';
+  if(i.redNote) h+='<p class="hint">'+esc(i.redNote)+'</p>';
+  if(r.grade.state==="done") h+='<p><b>Begründungen der KI:</b></p><ul class="just">'+r.grade.results.map(x=>'<li><b>Feiditor-Nr. '+x.nr+' – '+esc(x.note||"nicht bewertet")+':</b> '+esc(x.begruendung||"")+'</li>').join("")+'</ul>';
   if(r.grade.state==="done" && r.grade.model) h+='<p class="hint">Bewertet mit '+esc(r.grade.model)+'.</p>';
   return h;
 }
@@ -759,7 +810,7 @@ function parseGradeResponse(data,row){
   const map=new Map(); (obj.bewertungen||[]).forEach(b=>{ if(GRADES.includes(b.note)) map.set(Number(b.aufgabe),b); });
   return row.tasks.map(t=>{
     const b=map.get(t.nr);
-    if(!b) return {nr:t.nr,note:"ungenügend",begruendung:"Von der KI nicht bewertet – ohne Bewertung als ungenügend eingeordnet."};
+    if(!b) return {nr:t.nr,note:null,begruendung:"Von der KI nicht bewertet – bitte „erneut“ ausführen."};
     return {nr:t.nr,note:b.note,begruendung:b.begruendung||""};
   });
 }

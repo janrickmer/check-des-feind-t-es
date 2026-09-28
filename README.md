@@ -66,6 +66,12 @@ also grob 0,05–0,10 € pro Datei bei den aktuellen Opus-5.5-Preisen.
   dort eine Zeile ergänzen (Kurszeile → Konstante). Unbekannte Konstanten werden als Hinweis
   gemeldet, nicht als „nein“.
 * Die Aufgaben werden anhand der vorbefüllten Systemzeilen („Aufgabe N“ + Aufgabentext) getrennt;
-  reine Feiditor-Texte ohne Aufgaben werden als eine Aufgabe bewertet.
+  reine Feiditor-Texte ohne Aufgaben werden als eine Aufgabe bewertet. Der Standalone-Feiditor
+  verliert im Escape-Modus ab der ersten Eingabe die Systemmarkierung des nachfolgenden
+  vorbefüllten Textes (die Aufgabentexte zählen dort als „eingefügt“). Die Seite erkennt die
+  Struktur trotzdem, rechnet die Aufgabentexte aus dem Rot-Anteil heraus und nennt in den Details
+  den ursprünglichen Wert der Datei.
+* Namen werden tolerant verglichen: Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő …) stehen
+  auf den PDF-Seiten als „?“ und gelten beim Abgleich mit den Feiditor-Daten nicht als Abweichung.
 * PDFs, die von einem Viewer neu gespeichert oder gedruckt wurden, verlieren die Kommentarzeilen
   und werden als „nicht lesbar“ gemeldet (gleiche Einschränkung wie im Feiditor).
