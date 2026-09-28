@@ -420,7 +420,15 @@ function splitTasks(payload,escTasks){
   const sysState=(l)=>{ let any=false, all=true, some=false; for(let i=l.s;i<l.e;i++){ if(WS.test(t[i])) continue; any=true; if(isSys(i)) some=true; else all=false; } return {any,all:any&&all,some}; };
   const studentText=(s,e)=>{ let a=""; for(let i=s;i<e;i++){ const ch=t[i]; if(isSys(i)&&!WS.test(ch)) continue; a+=ch; } return a.replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); };
   const headers=[];
-  lines.forEach((l,li)=>{ const mm=txt(l).match(HEADER_RE); if(mm) headers.push({li,nr:parseInt(mm[1],10),reliable:sysState(l).all}); });
+  lines.forEach((l,li)=>{
+    const mm=txt(l).match(HEADER_RE);
+    if(mm){ headers.push({li,nr:parseInt(mm[1],10),reliable:sysState(l).all,mixed:false}); return; }
+    // Kopfzeile, hinter die getippt wurde ("Aufgabe 2 hallo"): der System-Anteil der Zeile ist genau "Aufgabe N" und steht vorn
+    let sysPart="", firstSys=-1;
+    for(let i=l.s;i<l.e;i++){ if(isSys(i)){ sysPart+=t[i]; if(firstSys<0) firstSys=i; } }
+    const m2=sysPart.match(HEADER_RE);
+    if(m2 && firstSys>=0 && !/\S/.test(t.slice(l.s,firstSys))) headers.push({li,nr:parseInt(m2[1],10),reliable:true,mixed:true});
+  });
   if(!headers.length){
     const answer=studentText(0,t.length);
     return {blocks:[{nr:1,task:(escTasks&&escTasks[0])||"",answer,chars:visibleCount(answer),free:true}],m,remarked};
@@ -429,23 +437,26 @@ function splitTasks(payload,escTasks){
   if(new Set(nrs).size!==nrs.length) headers.forEach((h,i)=>{ h.nr=i+1; });   // doppelte Nummern -> fortlaufend
   const blocks=[];
   headers.forEach((h,k)=>{
-    const hl=lines[h.li]; markSys(hl.s,hl.e);                                   // Kopfzeile ist nie Schülertext
+    const hl=lines[h.li]; if(!h.mixed) markSys(hl.s,hl.e);                      // Kopfzeile ist nie Schülertext
     const from=h.li+1, to=(k+1<headers.length)?headers[k+1].li:lines.length;
-    const taskParts=[]; let seenTask=false;
+    const taskParts=[]; let seenTask=false, bodyStart=from;   // bodyStart = erste Zeile der Antwort
     for(let ai=from;ai<to;ai++){
       const l=lines[ai]; const s=txt(l).trim();
-      if(s===""){ if(seenTask) break; else continue; }
+      if(s===""){ if(seenTask){ bodyStart=ai; break; } bodyStart=ai+1; continue; }
       const ss=sysState(l);
-      if(ss.all){ taskParts.push(s); seenTask=true; continue; }
+      if(ss.all){ taskParts.push(s); seenTask=true; bodyStart=ai+1; continue; }
       if(ss.some){ // gemischte Zeile: Systemteil = Aufgabe, Rest = Antwort (direkt hinter die Aufgabe getippt)
         let part=""; for(let i=l.s;i<l.e;i++){ if(isSys(i)||WS.test(t[i])) part+=t[i]; }
         part=part.replace(/\s+/g," ").trim(); if(part) taskParts.push(part);
-        break;
+        bodyStart=ai; break;
       }
-      if(!h.reliable && !seenTask){ markSys(l.s,l.e); taskParts.push(s); }   // Markierung verloren: Strukturregel
-      break;
+      if(!h.reliable && !seenTask){ markSys(l.s,l.e); taskParts.push(s); bodyStart=ai+1; break; }   // Markierung verloren: Strukturregel
+      bodyStart=ai; break;
     }
-    let answer=(from<to)?studentText(lines[from].s,lines[to-1].e):"";
+    if(bodyStart>to) bodyStart=to;
+    const headRest=h.mixed?studentText(hl.s,hl.e):"";                            // hinter "Aufgabe N" getippter Text
+    const body=(bodyStart<to)?studentText(lines[bodyStart].s,lines[to-1].e):"";
+    let answer=[headRest,body].filter(Boolean).join("\n");
     if(k===0){ const pre=studentText(0,hl.s); if(pre) answer=pre+(answer?"\n\n"+answer:""); }   // Text vor der ersten Aufgabe
     let task=taskParts.join(" ");
     if(!task && escTasks && escTasks[h.nr-1]) task=escTasks[h.nr-1];
