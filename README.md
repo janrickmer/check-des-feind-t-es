@@ -31,7 +31,10 @@ Person werden automatisch zu einer Zeile zusammengeführt.
 4. **Claude-Verbindung** (für die Spalte „Feiditor-Bewertung“): Oben rechts auf „Claude“ klicken
    und einen API-Schlüssel aus der Claude Console eintragen
    (<https://platform.claude.com/settings/keys>). Der Schlüssel wird ausschließlich im
-   `localStorage` des jeweiligen Browsers gespeichert und geht nur an `api.anthropic.com`.
+   `localStorage` des jeweiligen Browsers gespeichert – mit der PIN verschlüsselt (PBKDF2 mit
+   200 000 Runden, AES-GCM) – und geht nur an `api.anthropic.com`. Entschlüsselt liegt er nur
+   im Arbeitsspeicher der geöffneten Seite; deshalb fragt die Seite bei jedem Öffnen die PIN ab.
+   Wird die PIN im Quelltext geändert, muss der Schlüssel einmal neu eingetragen werden.
 
 ## Warum ein API-Schlüssel und nicht das claude.ai-Konto?
 
