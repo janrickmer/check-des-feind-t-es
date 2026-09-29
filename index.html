@@ -82,7 +82,7 @@
   .tablewrap{border:1px solid var(--line); border-radius:12px; overflow:auto; background:var(--paper2)}
   table.batch{width:100%; border-collapse:collapse; font-size:15px; min-width:760px}
   table.batch th{font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); font-weight:600; text-align:left; padding:11px 14px; border-bottom:1px solid var(--line); background:var(--paper); z-index:1}
-  @media (min-width:900px){ .tablewrap{overflow:visible} table.batch th{position:sticky; top:var(--topbar-h,0px)} }
+  @media (min-width:900px){ .tablewrap{overflow:visible} table.batch th{position:sticky; top:var(--topbar-h,0px)} table.batch.ltb > thead th{position:static} }
   table.batch td{padding:11px 14px; border-bottom:1px solid var(--line); font-family:var(--serif); vertical-align:top; font-variant-numeric:tabular-nums}
   table.batch tbody tr:last-child td{border-bottom:0}
   table.batch tr.main{cursor:pointer}
@@ -156,6 +156,8 @@
   table.batch table.sessions td.num{white-space:nowrap}
   .sessions .datesrc{font-family:var(--sans); font-size:12.5px; color:var(--muted); margin-left:6px}
   .sessions .datewarn{display:block; font-family:var(--sans); font-size:12.5px; color:var(--red)}
+  .sessions .datenote{display:block; font-family:var(--sans); font-size:12.5px; color:var(--muted)}
+  @media (max-width:899px){ table.batch.ltb .detbox{overflow-x:auto} }
   @media print{
     /* Tabelle drucken: nur Überschrift, Zusammenfassung, Tabelle und Legende – volle Breite, nichts abgeschnitten */
     body:not(.feid-open) .topbar, body:not(.feid-open) #conn-panel, body:not(.feid-open) .drop, body:not(.feid-open) .ctxrow,
@@ -881,7 +883,7 @@ function ymd(y,m,d){
 }
 function ymdToday(){ const d=new Date(); return ymd(d.getFullYear(),d.getMonth()+1,d.getDate()); }
 const MONTH_NO={januar:1,"jänner":1,jan:1,februar:2,feb:2,"märz":3,maerz:3,"mär":3,mrz:3,april:4,apr:4,mai:5,juni:6,jun:6,juli:7,jul:7,august:8,aug:8,september:9,sept:9,sep:9,oktober:10,okt:10,november:11,nov:11,dezember:12,dez:12};
-const MONTH_RE=/(?:^|[^\d])(\d{1,2})\s*\.?\s*(januar|jänner|jan|februar|feb|märz|maerz|mär|mrz|april|apr|mai|juni|jun|juli|jul|august|aug|september|sept|sep|oktober|okt|november|nov|dezember|dez)(?![a-zäöüß])\.?(?:\s*(\d{4}|\d{2})(?!\d))?/i;
+const MONTH_RE=/(?:^|[^\d])(\d{1,2})\s*\.?\s*(januar|jänner|jan|februar|feb|märz|maerz|mär|mrz|april|apr|mai|juni|jun|juli|jul|august|aug|september|sept|sep|oktober|okt|november|nov|dezember|dez)(?![a-zäöüß])\.?(?:\s*(\d{4}|\d{2})(?![\d.:]*\d))?/i;   // „10.30 Uhr“ ist keine Jahreszahl
 /* Jahr für „29.09.“ ohne Jahreszahl: das letzte Vorkommen bis zum Bezugstag (Tag der PDF-Erstellung, sonst heute) */
 function inferYear(m,d,ref){ const b=ref||ymdToday(); return (m*100+d>b.m*100+b.d)?b.y-1:b.y; }
 function yearOf(s){ const n=parseInt(s,10); return s.length===2?2000+n:n; }
@@ -889,7 +891,8 @@ function parseDateText(text,ref){
   const s=String(text||"").slice(0,400).replace(/ /g," ");
   let mm;
   if((mm=s.match(/(?:^|[^\d])(20\d{2})-(\d{1,2})-(\d{1,2})(?!\d)/))){ const r=ymd(+mm[1],+mm[2],+mm[3]); if(r) return r; }
-  if((mm=s.match(/(?:^|[^\d])(\d{1,2})\s*([.\/-])\s*(\d{1,2})\s*\2\s*(\d{4}|\d{2})(?![\d.]*\d)/))){ const r=ymd(yearOf(mm[4]),+mm[3],+mm[1]); if(r) return r; }
+  // Beginn nie mitten in einem Datum („08.09. 10.30 Uhr“ ist nicht der 09.10.2030)
+  if((mm=s.match(/(?<!\d)(?<!\d[.\/-]\s*)(\d{1,2})\s*([.\/-])\s*(\d{1,2})\s*\2\s*(\d{4}|\d{2})(?![\d.:]*\d)/))){ const r=ymd(yearOf(mm[4]),+mm[3],+mm[1]); if(r) return r; }
   if((mm=s.match(MONTH_RE))){ const mo=MONTH_NO[mm[2].toLowerCase()]; const d=+mm[1]; const r=ymd(mm[3]?yearOf(mm[3]):inferYear(mo,d,ref),mo,d); if(r) return r; }
   if((mm=s.match(/(?:^|[^\d.])(\d{1,2})\.(\d{1,2})\.(?!\d)/))){ const mo=+mm[2], d=+mm[1]; const r=ymd(inferYear(mo,d,ref),mo,d); if(r) return r; }
   return null;
@@ -901,6 +904,25 @@ function fileNameDate(name){
   mm=f.match(/Zwischenstand vom (\d{2})\.(\d{2})\.(\d{4})/i);
   if(mm){ const r=ymd(+mm[3],+mm[2],+mm[1]); if(r) return r; }
   return null;
+}
+/* Lerntagebuch: Vorgegebener Text sind nur die fünf Fragen (und die Datumszeile unter Frage 1). Weiterer Systemtext stammt aus
+   selbst eingefügten Aufgabenblöcken („Neuen Aufgabentext eintragen“) – dort unterscheidet der Feiditor nicht zwischen Tippen
+   und Einfügen; er würde sonst schwarz und ungezählt bleiben. Solche Zeichen gelten hier als eingefügt. */
+function ltbRemark(t,m){
+  const out=m.map(x=>Array.isArray(x)?x.slice():["t",-1]); let added=0, start=0, prevQ1=false;
+  const isSys=(i)=>{ const x=out[i]; return !!x&&(x[0]==="s"||x[0]==="q"); };
+  for(let i=0;i<=t.length;i++){
+    if(i<t.length&&t[i]!=="\n") continue;
+    // nur Zeilen, die ganz aus Systemtext bestehen (so sieht ein eingefügter Aufgabenblock aus); einzelne Systemzeichen
+    // in einer Antwortzeile stammen aus älteren Feiditor-Versionen (verschobene Markierung nach einem Emoji)
+    const line=t.slice(start,i); let any=false, sys=true;
+    for(let k=start;k<i;k++){ if(/\S/.test(t[k])){ any=true; if(!isSys(k)){ sys=false; break; } } }
+    sys=sys&&any;
+    const allowed=LTB_RE.test(line) || (prevQ1 && /^[A-Za-zÄÖÜäöüß]+, \d{2}\.\d{2}\.\d{4}$/.test(line));
+    if(sys&&!allowed) for(let k=start;k<i;k++){ if(/\S/.test(t[k])&&isSys(k)){ out[k]=["p",-1]; added++; } }
+    prevQ1=/^\s*1\)\s*An welchem Datum/i.test(line); start=i+1;
+  }
+  return {m:out,added};
 }
 const DAY_MS=86400000;
 function daysBetween(a,b){ return Math.round((Date.UTC(b.y,b.m-1,b.d)-Date.UTC(a.y,a.m-1,a.d))/DAY_MS); }
@@ -978,7 +1000,7 @@ async function analyzeFile(file){
     if(!(payload.vn||payload.nn)){ // ältere Feiditor-Version: nur Gesamtname -> Aufteilung aus den Escape-Daten übernehmen
       nameSplitGuessed=true;
       if(escd&&(escd.v||escd.n)&&namesMatch((escd.v||"")+" "+(escd.n||""),payload.n||"")){ vn=(escd.v||"").trim(); nn=(escd.n||"").trim(); nameSplitGuessed=false; }
-      else { const fm=String(file.name||"").match(/^(?:Lerntagebucheintrag|Textdatei|Auswertungsdatei)_(.+?)_(.+)_\d{8}\.(?:pdf|html?)$/i);
+      else { const fm=String(file.name||"").match(/(?:^|_)(?:Lerntagebucheintrag|Textdatei|Auswertungsdatei)_(.+?)_(.+)_\d{8}(?:\s*\(\d+\))?\.(?:pdf|html?)$/i);   // auch mit Moodle-Präfix bzw. „ (1)“
         if(fm){ const fv=fm[1].replace(/_/g," ").trim(), fn=fm[2].replace(/_/g," ").trim();
           if(normName(fv+" "+fn)===normName(payload.n)){ vn=fv; nn=fn; nameSplitGuessed=false; } } }
     }
@@ -1018,7 +1040,12 @@ async function analyzeFile(file){
     if(payload.v!==2 && Array.isArray(payload.k) && /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(payload.t) && kSegmentsBy(payload,true) && !kSegmentsBy(payload,false))
       row.info.redEmoji="Die Datei enthält Emoji und stammt aus einer Feiditor-Version vor der Korrektur vom 29.09.2026. Diese Version verlor nach einem Emoji bei einem Teil der später getippten Zeichen das Tipp-Tempo und zeigte sie grün – der Rot-Anteil kann deshalb zu niedrig sein.";
     if(row.info.kind==="lerntagebuch"){   // Lerntagebuch: Klassenansicht mit Rot-Anteil und Datum, keine KI-Einordnung
-      const st=computeStats(payload.t||"",sp.m);
+      const adj=ltbRemark(payload.t||"",sp.m);
+      if(adj.added){
+        row.payload.m=adj.m; row.red=computeStats(payload.t||"",adj.m).redPct;
+        row.info.ltbAdded="Enthält "+adj.added+" Zeichen in selbst eingefügten Aufgabenblöcken. Der Feiditor unterscheidet dort nicht zwischen Tippen und Einfügen – dieser Text zählt hier als eingefügt (rot).";
+      }
+      const st=computeStats(payload.t||"",adj.m);
       row.ltb=Object.assign({red:st.red,total:st.total},ltbSessionDate(payload,sp,file.name));
     }
     if(rStored!=null && rStored!==rOrig) row.info.redWarn="Der in der Datei gespeicherte Rot-Anteil ("+rStored+" %) stimmt nicht mit den Tipp-Daten überein (berechnet: "+rOrig+" %). Die Datei wurde möglicherweise verändert.";
@@ -1304,14 +1331,14 @@ function renderTable(){
    Je Person eine Zeile (Nachname, Vorname, Rot-Anteil über alle Einträge, Anzahl der Dateien); aufgeklappt die
    einzelnen Sitzungen nach Datum (Datum, Rot-Anteil des Eintrags, Zeichen ohne Aufgabenstellungen). Der Gesamtwert
    ist gewichtet: rote Zeichen aller Einträge / alle Zeichen aller Einträge. Zwischenstände zählen wie fertige Abgaben. */
-let lastMainCount=0;
+let lastMainCount=0, lastLtbHtml="", ltbGroupsShown=[];
 const openLtb=new Set();   // aufgeklappte Personen (Schlüssel aus den normalisierten Namen)
 const LTB_SORT_STORE="cdf_ltb_sort";
 let ltbSortKey="nn", ltbSortDir=1;
 try{ const sv=JSON.parse(localStorage.getItem(LTB_SORT_STORE)||"null"); if(sv&&["nn","vn","red","count"].includes(sv.k)&&(sv.d===1||sv.d===-1)){ ltbSortKey=sv.k; ltbSortDir=sv.d; } }catch(e){}
 const LTB_FIRST_DIR={nn:1,vn:1,red:-1,count:-1};
 function isLtbRow(r){ return !!(r && !r.error && r.info && r.info.kind==="lerntagebuch" && r.ltb); }
-function ltbPersonKey(r){ return normName(r.nn)+"\n"+normName(r.vn); }
+function ltbPersonKey(r){ return normName(r.vn+" "+r.nn); }   // voller Name: ältere Dateien kennen nur den Gesamtnamen
 function ltbEntryOrder(a,b){
   const x=a.row.ltb.date, y=b.row.ltb.date;
   if(!!x!==!!y) return x?-1:1;                          // ohne Datum ans Ende
@@ -1325,13 +1352,15 @@ function buildLtbGroups(){
   const out=[];
   for(const g of map.values()){
     g.entries.sort(ltbEntryOrder);
-    const cnt=new Map(); let best=null, bc=0;          // Anzeigename: häufigste Schreibweise (bei Gleichstand die frühere)
-    g.entries.forEach(e=>{ const n=e.row.nn+"\n"+e.row.vn; const c=(cnt.get(n)||0)+1; cnt.set(n,c); if(c>bc){ bc=c; best=e.row; } });
+    const cnt=new Map(); let best=null, bc=0;          // Anzeigename: häufigste Schreibweise (bei Gleichstand die frühere);
+    const sure=g.entries.filter(e=>!e.row.info.nameSplitGuessed);   // Dateien mit sicherer Aufteilung in Vor- und Nachname zuerst
+    (sure.length?sure:g.entries).forEach(e=>{ const n=e.row.nn+"\n"+e.row.vn; const c=(cnt.get(n)||0)+1; cnt.set(n,c); if(c>bc){ bc=c; best=e.row; } });
     g.nn=best.nn; g.vn=best.vn;
     let red=0,total=0; g.entries.forEach(e=>{ red+=e.row.ltb.red; total+=e.row.ltb.total; });
     g.redChars=red; g.total=total; g.red=total?Math.round(red/total*100):null; g.count=g.entries.length;
     const dates=new Map(); g.entries.forEach(e=>{ const d=e.row.ltb.date; if(d) dates.set(d.iso,(dates.get(d.iso)||0)+1); });
     g.sameDate=dates;
+    g.flag=g.entries.some(e=>e.row.info.redWarn||e.row.info.redEmoji||e.row.info.ltbAdded);   // Hinweis in einem Eintrag
     out.push(g);
   }
   const byName=(a,b)=>{ const c=(a.nn||"").localeCompare(b.nn||"","de"); if(c) return c; return (a.vn||"").localeCompare(b.vn||"","de"); };
@@ -1353,7 +1382,8 @@ function ltbSessionsHtml(g){
     const src=LTB_SRC_LABEL[L.src]?'<span class="datesrc">('+esc(LTB_SRC_LABEL[L.src])+')</span>':'';
     const same=d&&g.sameDate.get(d.iso)>1?'<span class="datesrc">· mehrere Dateien zu diesem Datum</span>':'';
     const tag=r.info.interim?'<span class="tag" title="Laut '+(r.info.interimSrc==="flag"?'verschlüsselter Kennung':'Dateiname')+' ein Zwischenstand – zählt wie eine fertige Abgabe">Zwischenstand</span>':'';
-    const warn=[L.warn,r.info.redWarn,r.info.interimMismatch].filter(Boolean).map(w=>'<span class="datewarn">'+esc(w)+'</span>').join("");
+    const warn=[L.warn,r.info.redWarn,r.info.redEmoji,r.info.ltbAdded,r.info.interimMismatch].filter(Boolean).map(w=>'<span class="datewarn">'+esc(w)+'</span>').join("")
+      +[r.info.redZero,r.info.redNote].filter(Boolean).map(w=>'<span class="datenote">'+esc(w)+'</span>').join("");
     const pct=(r.red==null)?'<span class="na">–</span>'
       :'<a href="#" class="red-link pct'+(redHigh(r.red)?" high":"")+'" data-idx="'+e.idx+'" title="Feiditor-Ansicht öffnen: '+esc(r.file)+'">'+r.red+'&nbsp;%</a>';
     h+='<tr><td title="'+esc(r.file)+'">'+(d?esc(d.label):'<i>unbekannt</i>')+src+same+tag+warn+'</td>'
@@ -1382,15 +1412,22 @@ function renderLtb(){
   groups.forEach((g,gi)=>{
     const open=openLtb.has(g.key);
     const pct=(g.red==null)?'<span class="na">–</span>'
-      :'<span class="pct'+(redHigh(g.red)?" high":"")+'" title="'+g.redChars.toLocaleString("de-DE")+' von '+g.total.toLocaleString("de-DE")+' Zeichen rot">'+g.red+'&nbsp;%</span>';
+      :'<span class="pct'+(redHigh(g.red)?" high":"")+'" title="'+g.redChars.toLocaleString("de-DE")+' von '+g.total.toLocaleString("de-DE")+' Zeichen rot">'+g.red+'&nbsp;%</span>'
+       +(g.flag?' <span class="nein" title="Mindestens ein Eintrag hat einen Hinweis – bitte aufklappen" aria-label="Hinweis in einem Eintrag">!</span>':'');
     html+='<tr class="main'+(open?" open":"")+'" data-g="'+gi+'" tabindex="0" role="button" aria-expanded="'+(open?"true":"false")+'" title="Sitzungen anzeigen (Klick oder Enter)">'
       +'<td>'+esc(g.nn)+'</td><td>'+esc(g.vn)+'</td><td class="num">'+pct+'</td><td class="num">'+g.count+'</td></tr>';
     if(open) html+='<tr class="details"><td colspan="4">'+ltbSessionsHtml(g)+'</td></tr>';
   });
-  tb.innerHTML=html;
   renderLtbSortHeaders();
+  if(html===lastLtbHtml && tb.childNodes.length) { ltbGroupsShown=groups; return; }   // unverändert (z. B. während der KI-Bewertung)
+  // Fokus merken (Person bzw. Prozent-Link) und nach dem Neuaufbau wiederherstellen
+  const a=document.activeElement; let focusKey=null, focusIdx=null;
+  if(a&&tb.contains(a)){ if(a.matches("tr.main")){ const g=ltbGroupsShown[parseInt(a.dataset.g,10)]; if(g) focusKey=g.key; } else if(a.matches("a.red-link")) focusIdx=a.dataset.idx; }
+  tb.innerHTML=html; lastLtbHtml=html; ltbGroupsShown=groups;
+  if(focusKey!=null){ const i=groups.findIndex(x=>x.key===focusKey); const tr=tb.querySelector('tr.main[data-g="'+i+'"]'); if(tr) tr.focus({preventScroll:true}); }
+  else if(focusIdx!=null){ const l=tb.querySelector('a.red-link[data-idx="'+focusIdx+'"]'); if(l) l.focus({preventScroll:true}); }
   const toggle=(tr)=>{
-    const g=groups[parseInt(tr.dataset.g,10)]; if(!g) return;
+    const g=ltbGroupsShown[parseInt(tr.dataset.g,10)]; if(!g) return;
     if(openLtb.has(g.key)) openLtb.delete(g.key); else openLtb.add(g.key);
     renderLtb();
     const i=buildLtbGroups().findIndex(x=>x.key===g.key);
