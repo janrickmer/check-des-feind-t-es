@@ -38,6 +38,8 @@ wie die bestehenden (Vorlage: ein aktueller Raum, z. B. janrickmer/escape-room-j
      Steckbrief. Daran erkennt der Check Dateien ohne mitgespeicherten Steckbrief. Die Anfänge müssen über
      alle Escape-Rooms eindeutig sein (prüfen).
    - `KNOWN_MAGIC` und `ROOM_MAGIC` (Kurszeile → Prüfkonstante `MAGIC` des Raums) für die Code-Prüfung.
+     Der Bestätigungscode entsteht im Escape-Room wie in den bestehenden Räumen über `computeCode()` mit einer
+     eigenen, noch nicht vergebenen Prüfkonstante `MAGIC`.
 6. **Testen vor dem Veröffentlichen:** echte Dateien aus dem echten Escape-Room erzeugen (Playwright,
    Headless-Chromium), im Check laden und prüfen: Code-Prüfung „ja“, `roomContextFor(row).src === "feiditor"`,
    die KI-Nachricht (`buildUserMessage`) enthält Jahrgangsstufe, Fach und alle Inhalte.
@@ -67,5 +69,9 @@ Spanne nach der niedrigsten).
 - Lerntagebücher: eigene Klassenansicht, keine KI-Bewertung; Datum aus dem Kalenderfeld, sonst aus der Antwort
   auf Frage 1, sonst aus dem Dateinamen.
 - Escape-Rooms und Feiditoren sind für Schüler:innen live (Branch `main`): erst nach bestandenen Tests pushen.
-- Diese Datei, README und `index.html` sind über check.janrickmer.de öffentlich abrufbar: keine Geheimnisse
-  und keine Anleitungen zum Umgehen der Prüfungen hineinschreiben.
+- Diese Datei, README und `index.html` sind über check.janrickmer.de öffentlich abrufbar, die Repositories
+  auf GitHub ebenfalls: keine Geheimnisse und keine Anleitungen zum Umgehen der Prüfungen hineinschreiben.
+- Wie der Bestätigungscode und der Schlüssel der Feiditor-Daten gebildet werden, nie ausschreiben – weder in
+  README/CLAUDE.md noch in erklärenden Code-Kommentaren oder Commit-Nachrichten. Nur auf die Funktionen
+  verweisen; dort steht die Berechnung: `computeCode()` und `MAGIC` im Escape-Room, `checkCode()` /
+  `CODE_FACTOR` und `autoDecrypt()` / `kfN()` im Check, `_kf()` / `_kfN()` in der Feiditor-Engine.

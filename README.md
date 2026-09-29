@@ -214,13 +214,13 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
 
 ## Technischer Hintergrund
 
-* Die Feiditor-Tracking-Daten stehen als `%TRACKDATA`-Kommentar in der PDF, AES-GCM-verschlüsselt
-  mit dem Feiditor-Lehrkraft-Code (Buchstabenzahl des Vornamens × 1104). Die Seite probiert die
-  Buchstabenzahlen 0–60 durch – genau wie die Feiditor-Tabellenansicht.
+* Die Feiditor-Tracking-Daten stehen als `%TRACKDATA`-Kommentar in der PDF, AES-GCM-verschlüsselt.
+  Die Seite entschlüsselt sie selbst, wie früher die Feiditor-Tabellenansicht (siehe `autoDecrypt`).
 * Der Überblick wird aus den unkomprimierten Textoperatoren der PDF gelesen
   (Labels `NAME`/`SCHÜLERIN / SCHÜLER`, `GEBURTSDATUM`, `BESTÄTIGUNGSCODE`, Kurszeile,
   „Lösungserläuterungen“).
-* Bestätigungscode = Geburtsdatum als Zahl (TTMMJJJJ) × 1104 + Konstante des Escape-Rooms.
+* Der Bestätigungscode hängt vom Geburtsdatum und von einer Prüfkonstante des jeweiligen
+  Escape-Rooms ab (Berechnung: `computeCode()` im Escape-Room, `checkCode()` hier).
   Die Konstanten der bekannten Escape-Rooms stehen in `ROOM_MAGIC`; bei einem neuen Escape-Room
   dort eine Zeile ergänzen (Kurszeile → Konstante), ebenso in `KNOWN_MAGIC` und – mit Aufgaben und
   Steckbrief – in `ESCAPE_ROOMS` (siehe `CLAUDE.md`). Unbekannte Konstanten werden als Hinweis

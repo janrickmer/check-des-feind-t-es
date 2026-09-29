@@ -367,7 +367,7 @@ const LEGACY_KEYS=["cdf_claude_api_key","cdf_claude_api_key_enc"];   // frühere
 // KI-Anbieter, Schlüsselablage und Modellwahl: siehe PROVIDERS im Abschnitt „KI-Verbindung“
 const RED_LIMIT=50;            // Rot-Anteil AB diesem Wert (≥ 50 %) wird rot und fett hervorgehoben
 function redHigh(p){ return typeof p==="number" && isFinite(p) && p>=RED_LIMIT; }
-const CODE_FACTOR=1104;        // Bestätigungscode = Geburtstagszahl (TTMMJJJJ) * 1104 + Konstante des jeweiligen Escape-Rooms
+const CODE_FACTOR=1104;        // Code-Prüfung (wie computeCode() im Escape-Room)
 const KNOWN_MAGIC=new Set([2,6,7,9,11,12,15,26]);
 // Erkennung des Escape-Rooms über die Kurszeile im PDF -> exakte Konstante
 const ROOM_MAGIC=[
@@ -421,11 +421,11 @@ function letterCount(s){return (String(s||"").match(/\p{L}/gu)||[]).length;}
 /* ---------------- Krypto (identisch zum Feiditor) ---------------- */
 async function _key(codeStr,usage){const mat=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(codeStr));return crypto.subtle.importKey("raw",mat,{name:"AES-GCM"},false,usage);}
 async function aesDecrypt(bundle,codeStr){const parts=bundle.split(":");const iv=b64ToBytes(parts[0]);const ct=b64ToBytes(parts[1]);const key=await _key(codeStr,["decrypt"]);const pt=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,ct);return new TextDecoder().decode(pt);}
-function kfN(n){return String(n*(0x230+0x220));}   // Feiditor-Code aus der Buchstabenzahl des Vornamens
+function kfN(n){return String(n*(0x230+0x220));}   // wie im Feiditor
 async function autoDecrypt(bundle,hintName){
   const order=[]; const h=letterCount(hintName); if(hintName) order.push(h);
   for(let n=1;n<=60;n++) if(!order.includes(n)) order.push(n);
-  if(!order.includes(0)) order.push(0);   // Vorname ohne Buchstaben
+  if(!order.includes(0)) order.push(0);
   for(const n of order){
     try{ const json=await aesDecrypt(bundle,kfN(n)); return {payload:JSON.parse(json),n}; }catch(e){}
   }
@@ -921,7 +921,7 @@ function fileKind(row,payload,sp){
   return "feiditor";
 }
 function isInterim(file){ return /zwischenstand/i.test(String(file||"")); }
-/* Vorname aus dem Dateinamen – nur als Hinweis, welcher Schlüssel zuerst probiert wird (spart bei vielen Dateien Zeit) */
+/* Hinweis aus dem Dateinamen, was beim Entschlüsseln zuerst probiert wird (spart bei vielen Dateien Zeit) */
 function firstNameFromFile(name){
   const f=String(name||"");
   let mm=f.match(/(?:Lerntagebucheintrag|Textdatei|Auswertungsdatei)_([^_]+)_/i); if(mm) return mm[1];
