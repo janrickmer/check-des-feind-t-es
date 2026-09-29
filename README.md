@@ -81,15 +81,24 @@ Tabelle „Lerntagebücher“, je Person eine Zeile:
 
 | Spalte | Inhalt |
 |---|---|
-| Nachname / Vorname | aus den verschlüsselten Feiditor-Daten; Groß-/Kleinschreibung und Leerzeichen spielen für die Zuordnung keine Rolle, angezeigt wird die häufigste Schreibweise |
+| Nachname / Vorname | aus den verschlüsselten Feiditor-Daten; zugeordnet wird über den vollen Namen (Groß-/Kleinschreibung und Leerzeichen spielen keine Rolle, ältere Dateien mit nur einem Gesamtnamen passen dazu), angezeigt wird die häufigste Schreibweise |
 | Rote Buchstaben (alle Einträge) | rot markierte Zeichen aller Einträge dieser Person geteilt durch alle ihre Zeichen (ohne Leerzeichen und ohne die vorgegebenen Fragen) – längere Einträge zählen entsprechend mehr; ab 50 % rot und fett |
 | Eingereichte Dateien | Anzahl der Einträge; Zwischenstände zählen wie fertige Abgaben, dieselbe Abgabe doppelt (etwa PDF und ältere Auswertungsdatei) zählt einmal |
 
 Ein Klick auf eine Person zeigt ihre Sitzungen nach Datum sortiert: Datum der Sitzung, Rot-Anteil
 dieses Eintrags (ab 50 % rot und fett; ein Klick öffnet die Feiditor-Ansicht mit dem farbig
 markierten Text) und die Zahl der Zeichen ohne Aufgabenstellungen. Liegen mehrere Dateien zum selben
-Datum vor, steht das dabei. Die Spaltenköpfe sortieren auch hier. Lerntagebücher werden nicht von der
-KI bewertet.
+Datum vor, steht das dabei. Hinweise zu einzelnen Einträgen (Emoji in älteren Versionen, fast alles mit
+0 ms Abstand, veränderter Rot-Anteil) stehen in der aufgeklappten Sitzung; ein „!“ neben dem Gesamtwert
+zeigt, dass es bei dieser Person solche Hinweise gibt. Die Spaltenköpfe sortieren auch hier. Lerntagebücher
+werden nicht von der KI bewertet.
+
+Selbst eingefügte Aufgabenblöcke: Ältere Lerntagebuch-Versionen hatten den Button „Neuen Aufgabentext
+eintragen“. Text darin gilt im Feiditor als vorgegebener Aufgabentext (schwarz, nicht gezählt), und der
+Feiditor unterscheidet dort nicht zwischen Tippen und Einfügen. Damit darüber kein eingefügter Text
+verschwindet, zählt diese Seite solchen Text (ganze Zeilen aus Systemtext, die weder eine der fünf Fragen
+noch das Datum sind) als eingefügt, also rot, und nennt das in der Sitzung. Im aktuellen
+Lerntagebuch-Feiditor gibt es den Button nicht mehr.
 
 Datum der Sitzung:
 1. Seit dem 30.09.2026 wählen die Schüler:innen das Datum bei Frage 1 im Lerntagebuch-Feiditor über
@@ -98,7 +107,7 @@ Datum der Sitzung:
    lässt sich erst mit Datum erzeugen; Zwischenstände jederzeit.
 2. Ältere Einträge: Die Seite liest das Datum aus der getippten Antwort auf Frage 1 („29.09.2026“,
    „29.9.26“, „29. September 2026“, „29.09.“ …; fehlt die Jahreszahl, gilt das letzte passende Datum bis
-   zum Tag der PDF-Erstellung).
+   zum Tag der PDF-Erstellung; Uhrzeiten wie „10.30 Uhr“ werden nicht als Datum gelesen).
 3. Sonst aus dem Dateinamen („Lerntagebucheintrag_…_TTMMJJJJ.pdf“, „Textdatei_…“, „Zwischenstand vom
    TT.MM.JJJJ …“, auch mit Moodle-Präfix) – das ist der Tag, an dem die PDF erstellt wurde. Die PDFs des
    Feiditors enthalten keine Metadaten mit Datum.
