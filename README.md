@@ -75,6 +75,32 @@ und Schaltflächen werden dabei ausgeblendet, die Notenfarben bleiben erhalten.
 „Ethik, Klasse 8 – Thema Gewissen“); die KI erhält ihn für diese Dateien. Ohne Angabe schließt sie
 das Niveau aus Aufgaben und Antworten und bewertet im Zweifel nach Sekundarstufe I.
 
+**Jahrgangsstufe und Inhalte aus dem Escape-Room:** Jeder Escape-Room hat einen Steckbrief (Fach,
+Jahrgangsstufe, Thema, Name des Escape-Rooms und 8 im Escape-Room erarbeitete Inhalte). Der Feiditor
+übernimmt ihn beim Öffnen aus dem Escape-Room und speichert ihn verschlüsselt in der PDF – auch in
+Zwischenständen, beim Fortsetzen und im normalen Feiditor, wenn dort die Überblick-PDF hochgeladen wird
+(Escape-Rooms ab 30.09.2026). Die KI erhält Jahrgangsstufe, Fach, Escape-Room und die Inhalte und nutzt sie
+als Erwartungshorizont: Fehlen zentrale passende Inhalte oder sind sie falsch wiedergegeben, führt das zu
+Abzug; richtiges Wissen darüber hinaus wertet auf; der Anspruch richtet sich nach der Jahrgangsstufe (beim
+Pulsar-Raum, Jahrgangsstufen 9–12, im Zweifel nach der niedrigsten). Ältere Dateien ohne Steckbrief erkennt
+die Seite an ihren Feiditor-Aufgaben und ergänzt den Steckbrief aus ihrer eigenen Liste (`ESCAPE_ROOMS`) –
+auch beim Pulsar-Raum, dessen Feiditor-Datei keine Überblicksseiten hat. Was die KI erhalten hat und woher
+es stammt, steht in den Details unter „Angaben für die KI“.
+
+| Escape-Room | Fach | Jahrgangsstufe |
+|---|---|---|
+| Lumo und die innere Stimme | Ethik | 6 |
+| Das Zeitportal – Die drei Schlüssel der Würde | Ethik | 7 |
+| Der Sneaker vor der Haustür | Politik und Wirtschaft | 7 |
+| Der Fall @lichtenberg.leaks | Politik und Wirtschaft | 8 |
+| Europäischer Jugendgipfel | Politik und Wirtschaft | 9 |
+| EU-Klimagipfel | Politik und Wirtschaft | 11 (Einführungsphase, E2) |
+| Das Gutachten | Evangelische Religion | 11 (Einführungsphase, E1) |
+| Stunde Null | Politik und Wirtschaft | 12 (Qualifikationsphase, Q2) |
+| Das Vermögensgeheimnis (Pulsar, Projektwoche Finanzielle Bildung) | Politik und Wirtschaft | 9–12 (gemischte Gruppe) |
+
+Neue Escape-Rooms müssen genauso aufgebaut sein; die Checkliste steht in `CLAUDE.md`.
+
 **Lerntagebücher einer Klasse:** Alle Lerntagebuch-Einträge einer Klasse (etwa am Schuljahresende)
 lassen sich auf einmal hochladen. Sie erscheinen nicht in der Haupttabelle, sondern in einer eigenen
 Tabelle „Lerntagebücher“, je Person eine Zeile:
@@ -174,7 +200,8 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
 
 * Alle PDFs werden lokal im Browser gelesen und entschlüsselt; nichts wird hochgeladen. Schlüssel werden je Anbieter getrennt gespeichert (`cdf_<anbieter>_api_key_enc`), der gewählte Anbieter unter `cdf_provider`.
 * An die KI gehen nur: Art der Datei, Kurszeile bzw. (nur bei Dateien ohne Escape-Room) der Kontext
-  der Lehrkraft, Aufgabenstellungen, Antworttexte, ein eventueller Text vor der ersten Aufgabe (als
+  der Lehrkraft, bei Escape-Room-Dateien der Steckbrief des Escape-Rooms (Jahrgangsstufe, Fach, Thema,
+  erarbeitete Inhalte), Aufgabenstellungen, Antworttexte, ein eventueller Text vor der ersten Aufgabe (als
   eigener Abschnitt) und die Lösungserläuterungen aus dem Überblick. Keine Geburtsdaten oder Codes.
   Schreibt eine Schülerin oder ein Schüler den eigenen Namen in den Text, wird er vor dem Senden durch
   „[Name]“ ersetzt: der volle Name überall, der Vorname als eigenes Wort, der Nachname allein nur im
@@ -195,7 +222,8 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   „Lösungserläuterungen“).
 * Bestätigungscode = Geburtsdatum als Zahl (TTMMJJJJ) × 1104 + Konstante des Escape-Rooms.
   Die Konstanten der bekannten Escape-Rooms stehen in `ROOM_MAGIC`; bei einem neuen Escape-Room
-  dort eine Zeile ergänzen (Kurszeile → Konstante). Unbekannte Konstanten werden als Hinweis
+  dort eine Zeile ergänzen (Kurszeile → Konstante), ebenso in `KNOWN_MAGIC` und – mit Aufgaben und
+  Steckbrief – in `ESCAPE_ROOMS` (siehe `CLAUDE.md`). Unbekannte Konstanten werden als Hinweis
   gemeldet, nicht als „nein“.
 * Gemeinsame Feiditor-Engine (ab 28.09.2026, Standalone, Lerntagebuch und Escape-Rooms): Die
   Nutzdaten enthalten die Blockstruktur `k` (je Block Art 0 = Zeile / 1 = Aufgabenblock,
