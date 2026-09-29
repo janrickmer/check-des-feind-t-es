@@ -451,7 +451,9 @@ function sanitizePayload(p){
   const m=Array.isArray(p.m)?p.m.slice(0,t.length).map(x=>Array.isArray(x)?[str(x[0]),(typeof x[1]==="number"&&isFinite(x[1]))?x[1]:-1]:["t",-1]):[];
   return {n:str(p.n),t,m,f:Array.isArray(p.f)?p.f.slice(0,t.length).map(x=>(typeof x==="number"&&isFinite(x))?x|0:0):[],vn:str(p.vn),nn:str(p.nn),r:(typeof p.r==="number"&&isFinite(p.r))?p.r:undefined,
     k:Array.isArray(p.k)?p.k:null,                                   // Blockstruktur (gemeinsame Feiditor-Engine ab 28.09.2026)
-    e:(p.e&&typeof p.e==="object")?{esc:!!p.e.esc}:null};             // Escape-Modus-Kennung
+    e:(p.e&&typeof p.e==="object")?{esc:!!p.e.esc}:null,              // Escape-Modus-Kennung
+    v:(typeof p.v==="number"&&isFinite(p.v))?p.v:0,                   // Datenversion (2 = Längen in UTF-16-Einheiten, ab 29.09.2026)
+    z:(p.z===1||p.z===0)?p.z:null};                                   // versteckte Kennung: 1 = Zwischenstand, 0 = fertige Abgabe, null = ältere Datei
 }
 /* Alle Content-Streams (unkomprimiert) in Dokumentreihenfolge; /Length wird bevorzugt, sonst Regex */
 function extractStreams(bin){
@@ -496,9 +498,10 @@ function extractTjStrings(stream){
 /* Escape-Room-Überblick aus den Seitentexten rekonstruieren */
 function parseOverview(bin){
   const pages=extractStreams(bin).map(extractTjStrings);
-  const ov={found:false,name:"",birthDate:"",code:"",code2:"",completedAt:"",subtitle:"",summary:"",notes:""};
+  const ov={found:false,name:"",birthDate:"",code:"",code2:"",completedAt:"",subtitle:"",summary:"",notes:"",resumeLog:""};
   const TITLE="Überblick deiner Antworten & Erläuterungen", NOTES="Lösungserläuterungen", COPY="Copyright Jan-Rickmer Feindt";
-  let notesParts=[];
+  const RESUME="Verwendung von Zwischenstand-Dateien";   // Vermerk der Escape-Rooms ab 29.09.2026 (am Ende der Erläuterungen)
+  let notesParts=[], resumeParts=[], inResume=false;
   for(const arr of pages){
     if(!arr.length) continue;
     const isOv=arr[0]===TITLE, isNotes=arr[0]===NOTES;
@@ -518,10 +521,16 @@ function parseOverview(bin){
     }
     if(isNotes){
       const start=(arr.length>1&&arr[1]===ov.subtitle)?2:1;
-      for(let k=start;k<arr.length;k++){ if(arr[k]===COPY) break; notesParts.push(arr[k]); }
+      for(let k=start;k<arr.length;k++){
+        if(arr[k]===COPY) break;
+        if(arr[k]===RESUME){ inResume=true; continue; }
+        (inResume?resumeParts:notesParts).push(arr[k]);
+      }
     }
   }
   ov.notes=notesParts.join("\n").replace(/\n(?=[a-zäöüß])/g," ").trim();
+  // Umbrochene Zeilen wieder zusammenfügen; jeder Eintrag „N. Weitergespielt ab …“ beginnt eine neue Zeile
+  ov.resumeLog=resumeParts.join(" ").replace(/\s+/g," ").replace(/ (?=\d{1,3}\. Weitergespielt ab )/g,"\n").trim().slice(0,4000);
   return ov;
 }
 
@@ -536,7 +545,8 @@ function parseOverview(bin){
    3. Ältere Dateien mit Systemtext ohne „Aufgabe N“ (etwa Lerntagebuch-Fragen mit Marke 'q'):
       zusammenhängender Systemtext = eine Aufgabe (s. splitBySystemRuns).
    4. Sonst: freier Text = eine Aufgabe.
-   Text vor der ersten Aufgabenstellung wird – wie bisher – der ersten Antwort vorangestellt. */
+   Text vor der ersten Aufgabenstellung (etwa eine Überschrift) wird getrennt als „pre“ der ersten Aufgabe gespeichert
+   und der KI in einem eigenen Abschnitt gezeigt. */
 const HEADER_RE=/^\s*Aufgabe\s+(\d+)\s*[:.]?\s*$/;
 function splitTasks(payload,escTasks){
   return splitByBlocks(payload,escTasks) || splitLegacy(payload,escTasks);
@@ -577,9 +587,9 @@ function fillMissing(blocks,upto,taskFor){
 }
 function cleanAnswer(a){ return String(a||"").replace(/[ \t]+\n/g,"\n").replace(/\n{3,}/g,"\n\n").trim(); }
 /* Blockstruktur k prüfen und in Zeichenbereiche umrechnen; null, wenn sie fehlt oder nicht zum Text passt.
-   Der Feiditor (Stand 28.09.2026) zählt k in Unicode-Zeichen (Codepunkten), t ist aber ein UTF-16-String, in dem ein
-   Emoji zwei Einheiten belegt. Zuerst wird die exakte UTF-16-Zählung versucht (für eine künftig korrigierte Engine),
-   dann die Codepunkt-Zählung. Ohne Emoji sind beide gleich. */
+   Der Feiditor zählt k seit dem 29.09.2026 (Datenversion v:2) in UTF-16-Einheiten wie t; Dateien vom 28./29.09.2026
+   davor zählten in Unicode-Zeichen (Codepunkten), in denen ein Emoji nur eins statt zwei belegt. Zuerst wird die
+   UTF-16-Zählung versucht, dann die Codepunkt-Zählung. Ohne Emoji sind beide gleich. */
 function kSegments(payload){ return kSegmentsBy(payload,false) || kSegmentsBy(payload,true); }
 function kSegmentsBy(payload,codePoints){
   const k=payload.k, t=payload.t||"";
@@ -813,6 +823,19 @@ function fileKind(row,payload,sp){
   return "feiditor";
 }
 function isInterim(file){ return /zwischenstand/i.test(String(file||"")); }
+/* Zwischenstand oder fertige Abgabe? Maßgeblich ist die versteckte Kennung z in den verschlüsselten Feiditor-Daten
+   (ab 29.09.2026); sie lässt sich nicht ändern, ohne die Daten neu zu verschlüsseln. Ältere Dateien ohne Kennung:
+   Dateiname („Zwischenstand vom …“). Weicht der Dateiname von der Kennung ab, wurde die Datei umbenannt. */
+function interimInfo(payload,fileName){
+  const byName=isInterim(fileName);
+  if(payload&&(payload.z===0||payload.z===1)){
+    const z=payload.z===1;
+    return {interim:z,interimSrc:"flag",interimMismatch:z!==byName?(z
+      ?"Laut verschlüsselter Kennung ist diese Datei ein Zwischenstand, obwohl der Dateiname nach einer fertigen Abgabe aussieht – die Datei wurde umbenannt."
+      :"Der Dateiname nennt einen Zwischenstand, laut verschlüsselter Kennung ist es aber die fertige Abgabe – die Datei wurde umbenannt."):""};
+  }
+  return {interim:byName,interimSrc:byName?"name":"",interimMismatch:""};
+}
 
 /* ---------------- Datei analysieren -> Zeile ---------------- */
 async function analyzeFile(file){
@@ -856,10 +879,10 @@ async function analyzeFile(file){
   row.vn=vn; row.nn=nn;
 
   row.info={
-    interim:isInterim(file.name),
+    ...interimInfo(payload,file.name),
     subtitle:ov.subtitle, birthDate:ov.birthDate, code:ov.code, code2:ov.code2, completedAt:ov.completedAt, summary:ov.summary,
     overviewName:ov.name, payloadName:payload?((vn+" "+nn).trim()):"", escName:escd?(((escd.v||"")+" "+(escd.n||"")).trim()):"",
-    notes:ov.notes, hasTrack:!!tm, hasEsc:!!escd, hasOverview:ov.found, nameSplitGuessed,
+    notes:ov.notes, resumeLog:ov.resumeLog, hasTrack:!!tm, hasEsc:!!escd, hasOverview:ov.found, nameSplitGuessed,
     escTasks:(escd&&Array.isArray(escd.t))?escd.t.slice(0,50):null,
   };
   row.code=checkCode(row.info);
@@ -883,8 +906,8 @@ async function analyzeFile(file){
       for(let i=0;i<payload.t.length;i++){ const mk=sp.m[i]||["t",-1]; if(WS.test(payload.t[i])||mk[0]==="s"||mk[0]==="q") continue; tot++; if(mk[0]==="t"&&mk[1]===0) zero++; }
       if(tot>=20 && zero/tot>=0.9) row.info.redZero="Fast alle Zeichen kamen in einem Schritt in den Feiditor (Tippabstand genau 0 ms), ohne dass der Browser ein Einfügen gemeldet hat. Mögliche Ursachen: Rückgängig/Wiederholen nach dem Einfügen, die Zwischenablage-Leiste einer Handytastatur, Drag-and-drop, Diktierfunktion, Autovervollständigung oder – bei älteren Feiditor-Versionen – verlorene Tipp-Daten.";
     }
-    if(Array.isArray(payload.k) && /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(payload.t) && kSegmentsBy(payload,true) && !kSegmentsBy(payload,false))
-      row.info.redEmoji="Die Datei enthält Emoji. Der Feiditor (Stand 28.09.2026) verliert nach einem Emoji bei einem Teil der später getippten Zeichen das Tipp-Tempo und zeigt sie grün – der Rot-Anteil kann deshalb zu niedrig sein.";
+    if(payload.v!==2 && Array.isArray(payload.k) && /[\uD800-\uDBFF][\uDC00-\uDFFF]/.test(payload.t) && kSegmentsBy(payload,true) && !kSegmentsBy(payload,false))
+      row.info.redEmoji="Die Datei enthält Emoji und stammt aus einer Feiditor-Version vor der Korrektur vom 29.09.2026. Diese Version verlor nach einem Emoji bei einem Teil der später getippten Zeichen das Tipp-Tempo und zeigte sie grün – der Rot-Anteil kann deshalb zu niedrig sein.";
     if(rStored!=null && rStored!==rOrig) row.info.redWarn="Der in der Datei gespeicherte Rot-Anteil ("+rStored+" %) stimmt nicht mit den Tipp-Daten überein (berechnet: "+rOrig+" %). Die Datei wurde möglicherweise verändert.";
     row.grade={state:"idle"};
   }
@@ -922,7 +945,7 @@ function buildViews(){
     const v={row:r,idx,nn:r.nn,vn:r.vn,code:r.code,red:r.red,grade:r.grade,info:r.info,tasks:r.tasks,error:r.error,files:[r.file],file:r.file,merged:false};
     const mate=mateOf.get(r);
     if(mate){
-      const info=Object.assign({},r.info,mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true,redNote:r.info.redNote,redWarn:r.info.redWarn,redZero:r.info.redZero,redEmoji:r.info.redEmoji,kind:"escape",interim:r.info.interim});
+      const info=Object.assign({},r.info,mate.info,{payloadName:(r.vn+" "+r.nn).trim(),hasTrack:true,redNote:r.info.redNote,redWarn:r.info.redWarn,redZero:r.info.redZero,redEmoji:r.info.redEmoji,kind:"escape",interim:r.info.interim,interimSrc:r.info.interimSrc,interimMismatch:r.info.interimMismatch});
       v.info=info; v.code=checkCode(info); v.files=[r.file,mate.file]; v.merged=true;
       if(ambiguous.has(r)) v.code.reasons.push("Hinweis: Mehrere Dateien tragen diesen Namen – die Zuordnung von Feiditor-Datei und Überblick ist nicht eindeutig (Feiditor-Dateien enthalten kein Geburtsdatum). Bitte anhand der Dateinamen in den Details prüfen.");
       if(r.info.nameSplitGuessed && (mate.vn||mate.nn)){ v.vn=mate.vn; v.nn=mate.nn; }   // saubere Namensaufteilung aus dem Überblick
@@ -1099,19 +1122,21 @@ function detailsHtml(r){
   const i=r.info||{};
   let h='<div class="detbox"><dl class="dl">';
   h+='<dt>'+(r.files&&r.files.length>1?'Dateien':'Datei')+'</dt><dd>'+esc((r.files||[r.file]).join(" + "))+(r.merged?' <span class="hint">(Feiditor-Datei und Escape-Room-Überblick derselben Person zusammengeführt)</span>':'')+(r.extraOverview?' <span class="hint">(zusätzlich hochgeladener Überblick mit demselben Code – keine eigene Zeile)</span>':'')+'</dd>';
-  if(i.kind) h+='<dt>Dateiart</dt><dd>'+esc(KIND_LABEL[i.kind]||i.kind)+(i.interim?' <span class="hint">– laut Dateiname ein Zwischenstand, nicht die fertige Abgabe</span>':'')+'</dd>';
+  if(i.kind) h+='<dt>Dateiart</dt><dd>'+esc(KIND_LABEL[i.kind]||i.kind)+(i.interim?' <span class="hint">– laut '+(i.interimSrc==="flag"?'verschlüsselter Kennung':'Dateiname')+' ein Zwischenstand, nicht die fertige Abgabe</span>':(i.interimSrc==="flag"?' <span class="hint">– laut verschlüsselter Kennung die fertige Abgabe</span>':''))+'</dd>';
   if(i.subtitle) h+='<dt>Kurs / Escape-Room</dt><dd>'+esc(i.subtitle)+'</dd>';
   if(i.overviewName) h+='<dt>Name im Überblick</dt><dd>'+esc(i.overviewName)+'</dd>';
   if(i.birthDate) h+='<dt>Geburtsdatum</dt><dd>'+esc(i.birthDate)+'</dd>';
   if(i.code||i.code2) h+='<dt>Bestätigungscode</dt><dd>'+esc(i.code||i.code2)+'</dd>';
   if(i.completedAt) h+='<dt>Abgeschlossen am</dt><dd>'+esc(i.completedAt)+'</dd>';
   if(i.summary) h+='<dt>Escape-Room</dt><dd>'+esc(i.summary)+'</dd>';
+  if(i.resumeLog) h+='<dt>Zwischenstand-Dateien im Escape-Room</dt><dd>'+esc(i.resumeLog).replace(/\n/g,'<br>')+'</dd>';
   if(r.tasks.length) h+='<dt>Feiditor-Texte</dt><dd>'+r.tasks.map(t=>'Nr. '+t.nr+': '+(t.missing?'im Feiditor gelöscht':t.chars+' Zeichen'+(t.added?' (selbst ergänzt)':''))).join(' · ')+(r.tasks[0]&&r.tasks.some(t=>t.pre)?' · Text vor der ersten Aufgabe: '+visibleCount(r.tasks.find(t=>t.pre).pre)+' Zeichen':'')+'</dd>';
   if(i.kind==="feiditor"){ const long=r.tasks.filter(t=>!t.missing&&visibleCount(t.task)>400);
     if(long.length) h+='<p class="errtext">Hinweis: Die selbst eingetragene Aufgabenstellung zu Nr. '+long.map(t=>t.nr).join(", ")+' ist ungewöhnlich lang. Aufgabentexte färbt der Feiditor nicht ein und zählt sie nicht mit – bitte in der Feiditor-Ansicht prüfen, ob dort Antworttext steht.</p>'; }
   if(r.dupFiles) h+='<p class="hint">Dieselbe Abgabe wurde mehrfach hochgeladen (gleiche verschlüsselte Daten, z. B. PDF und ältere Auswertungsdatei) – sie wird nur einmal angezeigt und bewertet.</p>';
   h+='</dl>';
   if(r.error) h+='<p class="errtext">'+esc(r.error)+'</p>';
+  if(i.interimMismatch) h+='<p class="errtext">'+esc(i.interimMismatch)+'</p>';
   if(r.code.reasons.length) h+='<p><b>Code-Prüfung:</b></p><ul class="reasons">'+r.code.reasons.map(x=>'<li>'+esc(x)+'</li>').join("")+'</ul>';
   if(i.redNote) h+='<p class="hint">'+esc(i.redNote)+'</p>';
   if(i.redWarn) h+='<p class="errtext">'+esc(i.redWarn)+'</p>';
@@ -1132,7 +1157,7 @@ function renderTable(){
     }
     const open=openDetails.has(idx);
     html+='<tr class="main'+(open?" open":"")+'" data-idx="'+idx+'" tabindex="0" role="button" aria-expanded="'+(open?"true":"false")+'" title="Details anzeigen (Klick oder Enter)">'
-      +'<td>'+esc(r.nn)+(r.info&&r.info.interim?'<span class="tag" title="Laut Dateiname ein Zwischenstand aus dem Feiditor, nicht die fertige Abgabe">Zwischenstand</span>':'')+'</td><td>'+esc(r.vn)+'</td>'
+      +'<td>'+esc(r.nn)+(r.info&&r.info.interim?'<span class="tag" title="Laut '+(r.info.interimSrc==="flag"?'verschlüsselter Kennung':'Dateiname')+' ein Zwischenstand aus dem Feiditor, nicht die fertige Abgabe">Zwischenstand</span>':'')+'</td><td>'+esc(r.vn)+'</td>'
       +'<td class="num">'+codeCell(r)+'</td>'
       +'<td class="num">'+redCell(r)+'</td>'
       +'<td>'+gradeCell(r)+'</td></tr>';

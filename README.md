@@ -29,9 +29,10 @@ merkt sich die zuletzt gewählte Sortierung. Haben fast alle Zeichen einer Datei
 von genau 0 ms, ohne als eingefügt markiert zu sein, nennt die Detailzeile mögliche Ursachen
 (Rückgängig/Wiederholen nach dem Einfügen, Zwischenablage-Leiste einer Handytastatur, Drag-and-drop,
 Diktierfunktion, Autovervollständigung, Datenverlust älterer Feiditor-Versionen) – ohne sie zu werten.
-Enthält eine Datei der aktuellen Feiditor-Version ein Emoji, weist die Detailzeile darauf hin, dass der
-Rot-Anteil zu niedrig sein kann: Der Feiditor verliert nach einem Emoji bei einem Teil der später
-getippten Zeichen das Tipp-Tempo (Fehler in der gemeinsamen Feiditor-Engine, siehe unten).
+Enthält eine Datei aus einer Feiditor-Version vor der Korrektur vom 29.09.2026 ein Emoji, weist die
+Detailzeile darauf hin, dass der Rot-Anteil zu niedrig sein kann: Diese Versionen verloren nach einem
+Emoji bei einem Teil der später getippten Zeichen das Tipp-Tempo (siehe unten). Dateien der
+korrigierten Version (Datenversion 2) sind davon nicht betroffen und bekommen keinen Hinweis.
 
 Zusammenführen: Eine Feiditor-Datei mit Escape-Room-Aufgaben, aber ohne Code (Standalone-Feiditor
 im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand) und der Überblick derselben Person aus
@@ -40,7 +41,25 @@ Abgaben haben dabei Vorrang vor Zwischenständen. Wird zur kombinierten Datei zu
 Überblick mit demselben Code hochgeladen, entsteht keine zweite Zeile. Dieselbe Abgabe doppelt (etwa
 PDF und ältere Auswertungsdatei) erscheint und zählt nur einmal. Normale Feiditor-Dateien und
 Lerntagebuch-Einträge werden nie mit einem Überblick zusammengeführt. Zwischenstände sind in der
-Tabelle markiert (erkannt am Dateinamen – die PDF selbst unterscheidet sich nicht von der fertigen Abgabe).
+Tabelle markiert.
+
+**Zwischenstand oder fertige Abgabe:** Seit dem 29.09.2026 schreiben alle Feiditoren (Standalone,
+Lerntagebuch, alle Escape-Rooms) eine versteckte Kennung in die verschlüsselten Daten der PDF:
+„Zwischenstand herunterladen und speichern“ → Zwischenstand, „Text in PDF-Datei umwandeln“ → fertige
+Abgabe. Diese Kennung ist maßgeblich; die Details nennen sie („laut verschlüsselter Kennung …“).
+Passt der Dateiname nicht dazu, wurde die Datei umbenannt – die Details weisen darauf hin. Ältere
+Dateien ohne Kennung werden weiterhin am Dateinamen („Zwischenstand vom …“) erkannt.
+Zur Sicherheit: Die Kennung steckt mit allen anderen Tipp-Daten im selben AES-GCM-verschlüsselten
+Block. Wer nur die PDF bearbeitet, kann sie nicht ändern, ohne dass die Datei unlesbar wird. Weil
+der Feiditor aber im Browser läuft und sein Quelltext öffentlich ist, könnte jemand mit
+Programmierkenntnissen die Daten entschlüsseln und neu verschlüsseln – derselbe Schutz wie bei
+allen übrigen Tipp-Daten (Rot-Anteil, Einfüge-Markierungen).
+
+**Geladene Spielstände im Escape-Room:** Seit dem 29.09.2026 lässt sich ein Escape-Room als
+Zwischenstand-Datei (.txt) speichern und später weiterspielen. Der Überblick vermerkt am Ende der
+Lösungserläuterungen unter „Verwendung von Zwischenstand-Dateien“, ob und wann eine solche Datei
+geladen wurde und ab welchem Raum es weiterging. Die Details zeigen diesen Vermerk
+(„Zwischenstand-Dateien im Escape-Room“); an die KI geht er nicht.
 
 Gelöschte und ergänzte Aufgaben: Im neuen Feiditor lassen sich Aufgabenblöcke mit dem roten ×
 entfernen und eigene ergänzen. Fehlt in einer Escape-Room-Datei eine Aufgabennummer oder im Lerntagebuch
@@ -143,8 +162,9 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   eingefügte Aufgabentexte: im Escape-Room mit dem Label „Aufgabe N“, im normalen Feiditor
   (Button „Neuen Aufgabentext eintragen“) und im Lerntagebuch ohne Label. Alle Zeilen bis zum
   nächsten Aufgabenblock sind die Antwort; Text vor der ersten Aufgabe (etwa eine Überschrift)
-  geht als eigener Abschnitt an die KI. `k` zählt Unicode-Zeichen (Codepunkte), der Text ist UTF-16 –
-  ein Emoji belegt dort zwei Einheiten; die Seite rechnet das um. Beschriftete Aufgaben behalten ihre
+  geht als eigener Abschnitt an die KI. `k` zählt seit dem 29.09.2026 (Datenversion `v: 2`) wie der
+  Text in UTF-16-Einheiten, davor in Unicode-Zeichen (Codepunkten), in denen ein Emoji eins statt zwei
+  belegt; die Seite liest beide Zählweisen. Beschriftete Aufgaben behalten ihre
   Nummer, selbst ergänzte bekommen die nächste freie Nummer, sonst wird fortlaufend nummeriert.
   Nach dem Fortsetzen eines alten Zwischenstands kann ein Aufgabenblock mehrere frühere Aufgaben
   enthalten; er wird an „Aufgabe N“-Zeilen bzw. an den Lerntagebuch-Fragen geteilt. Passt `k` nicht
@@ -165,11 +185,14 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   letzten `%%EOF` gelesen – genau dort schreiben sie Feiditor und Escape-Room hin. Schülertext steht in
   der PDF immer in Klammern innerhalb eines Textstroms davor, deshalb kann niemand eigene
   „Escape-Daten“ in seinen Text tippen oder einfügen (auch nicht mit einem Wagenrücklauf).
-* Bekannter Fehler der gemeinsamen Feiditor-Engine (Stand 28.09.2026): `serializeEditor` zählt Zeichen
-  als Unicode-Codepunkte (`for (const ch of s)`), der Text `t`, die Tipp-Daten und `buildPayload`
-  arbeiten aber mit UTF-16-Einheiten. Nach einem Emoji (zwei UTF-16-Einheiten) sind Format-Bits,
-  Aufgaben-Markierung und Blockstruktur um eine Stelle verschoben; `applySystemFlags` setzt dadurch bei
-  späteren Zeichen das Tipp-Tempo zurück. Diese Seite liest die Blockstruktur in beiden Zählweisen;
-  behoben werden muss der Fehler im Feiditor selbst (`pushCh` je UTF-16-Einheit statt je Codepunkt).
+* Emoji-Fehler der gemeinsamen Feiditor-Engine (28.09.–29.09.2026, seit 29.09.2026 in allen elf
+  Feiditoren behoben): `serializeEditor` zählte Zeichen als Unicode-Codepunkte (`for (const ch of s)`),
+  der Text `t`, die Tipp-Daten und `buildPayload` arbeiten aber mit UTF-16-Einheiten. Nach einem Emoji
+  (zwei UTF-16-Einheiten) waren Format-Bits, Aufgaben-Markierung und Blockstruktur verschoben;
+  `applySystemFlags` setzte dadurch bei späteren Zeichen das Tipp-Tempo zurück (im Test fiel der
+  Rot-Anteil einer komplett getippten Escape-Room-Antwort mit einem Emoji von 97 % auf 30 %), und beim
+  Fortsetzen eines solchen Zwischenstands gerieten Aufgabenblöcke durcheinander. Die korrigierte Engine
+  zählt je UTF-16-Einheit, schreibt `v: 2` und rechnet beim Fortsetzen älterer Dateien die
+  Blockstruktur um. Diese Seite liest die Blockstruktur in beiden Zählweisen.
 * PDFs, die von einem Viewer neu gespeichert oder gedruckt wurden, verlieren die Kommentarzeilen
   und werden als „nicht lesbar“ gemeldet (gleiche Einschränkung wie im Feiditor).
