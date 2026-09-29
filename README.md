@@ -26,17 +26,31 @@ grün = langsamer getippt, schwarz = vorgegebener Aufgabentext, nicht gewertet),
 Statistik. Ein Klick auf einen Spaltenkopf sortiert die Tabelle, zum Beispiel nach Rot-Anteil
 (höchster zuerst, wie in der Tabellenansicht des Feiditors) oder nach Durchschnittsnote; der Browser
 merkt sich die zuletzt gewählte Sortierung. Haben fast alle Zeichen einer Datei einen Tippabstand
-von genau 0 ms, ohne als eingefügt markiert zu sein, weist die Detailzeile darauf hin: Das entsteht
-bei Text, der auf einen Schlag in den Feiditor kam (Diktierfunktion, Autovervollständigung) oder bei
-Datenverlust in älteren Feiditor-Versionen – rot heißt dann nicht zwingend kopiert.
+von genau 0 ms, ohne als eingefügt markiert zu sein, nennt die Detailzeile mögliche Ursachen
+(Rückgängig/Wiederholen nach dem Einfügen, Zwischenablage-Leiste einer Handytastatur, Drag-and-drop,
+Diktierfunktion, Autovervollständigung, Datenverlust älterer Feiditor-Versionen) – ohne sie zu werten.
+Enthält eine Datei der aktuellen Feiditor-Version ein Emoji, weist die Detailzeile darauf hin, dass der
+Rot-Anteil zu niedrig sein kann: Der Feiditor verliert nach einem Emoji bei einem Teil der später
+getippten Zeichen das Tipp-Tempo (Fehler in der gemeinsamen Feiditor-Engine, siehe unten).
 
 Zusammenführen: Eine Feiditor-Datei mit Escape-Room-Aufgaben, aber ohne Code (Standalone-Feiditor
-im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand) und der Überblick derselben Person werden
-zu einer Zeile zusammengeführt; fertige Abgaben haben dabei Vorrang vor Zwischenständen. Wird zur
-kombinierten Datei zusätzlich der separate Überblick mit demselben Code hochgeladen, entsteht keine
-zweite Zeile. Normale Feiditor-Dateien und Lerntagebuch-Einträge werden nie mit einem Überblick
-zusammengeführt. Zwischenstände sind in der Tabelle markiert (erkannt am Dateinamen – die PDF selbst
-unterscheidet sich nicht von der fertigen Abgabe).
+im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand) und der Überblick derselben Person aus
+demselben Escape-Room (Abgleich der Aufgabentexte) werden zu einer Zeile zusammengeführt; fertige
+Abgaben haben dabei Vorrang vor Zwischenständen. Wird zur kombinierten Datei zusätzlich der separate
+Überblick mit demselben Code hochgeladen, entsteht keine zweite Zeile. Dieselbe Abgabe doppelt (etwa
+PDF und ältere Auswertungsdatei) erscheint und zählt nur einmal. Normale Feiditor-Dateien und
+Lerntagebuch-Einträge werden nie mit einem Überblick zusammengeführt. Zwischenstände sind in der
+Tabelle markiert (erkannt am Dateinamen – die PDF selbst unterscheidet sich nicht von der fertigen Abgabe).
+
+Gelöschte und ergänzte Aufgaben: Im neuen Feiditor lassen sich Aufgabenblöcke mit dem roten ×
+entfernen und eigene ergänzen. Fehlt in einer Escape-Room-Datei eine Aufgabennummer oder im Lerntagebuch
+eine der fünf Fragen, erscheint sie als „im Feiditor gelöscht“ und wird ohne KI „ungenügend“. Selbst
+ergänzte Aufgaben bekommen die nächste freie Nummer, stehen als „(ergänzt)“ in der Tabelle und zählen
+nicht zur Durchschnittsnote. Selbst eingetragene Aufgabentexte färbt der Feiditor nicht ein; ist einer
+ungewöhnlich lang, weist die Detailzeile darauf hin.
+
+Drucken: Die Tabelle lässt sich direkt aus dem Browser drucken (A4 hoch); Kopfleiste, Upload-Feld
+und Schaltflächen werden dabei ausgeblendet, die Notenfarben bleiben erhalten.
 
 **Kontext für Dateien ohne Escape-Room:** Normale Feiditor-Dateien und Lerntagebuch-Einträge nennen
 weder Fach noch Jahrgang. Unter dem Feld zum Hochladen lässt sich dafür ein Kontext eintragen (etwa
@@ -99,12 +113,17 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
 ## Datenschutz
 
 * Alle PDFs werden lokal im Browser gelesen und entschlüsselt; nichts wird hochgeladen. Schlüssel werden je Anbieter getrennt gespeichert (`cdf_<anbieter>_api_key_enc`), der gewählte Anbieter unter `cdf_provider`.
-* An die KI gehen nur: Art der Datei, Kurszeile bzw. der Kontext der Lehrkraft,
-  Aufgabenstellungen, Antworttexte und die Lösungserläuterungen aus dem Überblick. Keine Namen,
-  Geburtsdaten oder Codes.
+* An die KI gehen nur: Art der Datei, Kurszeile bzw. (nur bei Dateien ohne Escape-Room) der Kontext
+  der Lehrkraft, Aufgabenstellungen, Antworttexte, ein eventueller Text vor der ersten Aufgabe (als
+  eigener Abschnitt) und die Lösungserläuterungen aus dem Überblick. Keine Geburtsdaten oder Codes.
+  Schreibt eine Schülerin oder ein Schüler den eigenen Namen in den Text, wird er vor dem Senden durch
+  „[Name]“ ersetzt: der volle Name überall, der Vorname als eigenes Wort, der Nachname allein nur im
+  Text vor der ersten Aufgabe (sonst könnte er ein normales Wort wie „klein“ oder „Wolf“ sein).
 * Leere Antworten werden ohne KI als „ungenügend“ eingeordnet.
 * Der System-Prompt kennzeichnet Aufgaben, Antworten und Lösungserläuterungen als Daten aus einer
-  Schülerdatei, nicht als Anweisungen.
+  Schülerdatei, nicht als Anweisungen. Aufgabenstellung und Antwort stehen jeweils zwischen `<<<` und
+  `>>>`; gleichlautende Zeichenfolgen im Schülertext werden vorher entschärft, damit niemand über eine
+  selbst eingetragene Aufgabenstellung einen falschen Antwortblock unterschieben kann.
 
 ## Technischer Hintergrund
 
@@ -124,14 +143,17 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   eingefügte Aufgabentexte: im Escape-Room mit dem Label „Aufgabe N“, im normalen Feiditor
   (Button „Neuen Aufgabentext eintragen“) und im Lerntagebuch ohne Label. Alle Zeilen bis zum
   nächsten Aufgabenblock sind die Antwort; Text vor der ersten Aufgabe (etwa eine Überschrift)
-  wird der ersten Antwort vorangestellt. Beschriftete Aufgaben behalten ihre Nummer, selbst
-  ergänzte Aufgaben bekommen die nächste freie Nummer, sonst wird fortlaufend nummeriert.
-  Passt `k` nicht zum Text, gelten die älteren Regeln unten.
+  geht als eigener Abschnitt an die KI. `k` zählt Unicode-Zeichen (Codepunkte), der Text ist UTF-16 –
+  ein Emoji belegt dort zwei Einheiten; die Seite rechnet das um. Beschriftete Aufgaben behalten ihre
+  Nummer, selbst ergänzte bekommen die nächste freie Nummer, sonst wird fortlaufend nummeriert.
+  Nach dem Fortsetzen eines alten Zwischenstands kann ein Aufgabenblock mehrere frühere Aufgaben
+  enthalten; er wird an „Aufgabe N“-Zeilen bzw. an den Lerntagebuch-Fragen geteilt. Passt `k` nicht
+  zum Text, gelten die älteren Regeln unten.
 * Ältere Dateien: Die Aufgaben werden anhand der vorbefüllten Systemzeilen („Aufgabe N“ +
   Aufgabentext) getrennt; Systemtext ohne „Aufgabe N“ (etwa Lerntagebuch-Fragen mit Marke `q`)
   bildet je zusammenhängendem Abschnitt eine Aufgabe; Texte ganz ohne Aufgaben werden als eine
-  Aufgabe bewertet. Nummeriert eine Aufgabenstellung sich selbst („1) …“ im Lerntagebuch), gilt diese
-  Nummer. Ältere Dateien speichern nur den Gesamtnamen; bei Doppel-Vornamen hilft der Dateiname
+  Aufgabe bewertet. Nummeriert eine Aufgabenstellung sich selbst („1) …“ im Lerntagebuch, „Aufgabe 3 …“),
+  gilt diese Nummer; „9. November …“ ist ein Datum und keine Nummer. Ältere Dateien speichern nur den Gesamtnamen; bei Doppel-Vornamen hilft der Dateiname
   („Lerntagebucheintrag_Vorname_Nachname_TTMMJJJJ.pdf“) bei der Aufteilung. Der ältere Standalone-Feiditor
   verliert im Escape-Modus ab der ersten Eingabe die Systemmarkierung des nachfolgenden
   vorbefüllten Textes (die Aufgabentexte zählen dort als „eingefügt“). Die Seite erkennt die
@@ -139,8 +161,15 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   den ursprünglichen Wert der Datei.
 * Namen werden tolerant verglichen: Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő …) stehen
   auf den PDF-Seiten als „?“ und gelten beim Abgleich mit den Feiditor-Daten nicht als Abweichung.
-* `%TRACKDATA` und `%ESCAPEDATA` werden nur am Zeilenanfang gelesen (so schreiben sie Feiditor und
-  Escape-Room). Schülertext steht in der PDF immer in Klammern innerhalb eines Textstroms, deshalb
-  kann niemand eigene „Escape-Daten“ in seinen Text tippen.
+* `%TRACKDATA` wird nur im Kopf der PDF (vor dem ersten Objekt) und `%ESCAPEDATA` nur hinter dem
+  letzten `%%EOF` gelesen – genau dort schreiben sie Feiditor und Escape-Room hin. Schülertext steht in
+  der PDF immer in Klammern innerhalb eines Textstroms davor, deshalb kann niemand eigene
+  „Escape-Daten“ in seinen Text tippen oder einfügen (auch nicht mit einem Wagenrücklauf).
+* Bekannter Fehler der gemeinsamen Feiditor-Engine (Stand 28.09.2026): `serializeEditor` zählt Zeichen
+  als Unicode-Codepunkte (`for (const ch of s)`), der Text `t`, die Tipp-Daten und `buildPayload`
+  arbeiten aber mit UTF-16-Einheiten. Nach einem Emoji (zwei UTF-16-Einheiten) sind Format-Bits,
+  Aufgaben-Markierung und Blockstruktur um eine Stelle verschoben; `applySystemFlags` setzt dadurch bei
+  späteren Zeichen das Tipp-Tempo zurück. Diese Seite liest die Blockstruktur in beiden Zählweisen;
+  behoben werden muss der Fehler im Feiditor selbst (`pushCh` je UTF-16-Einheit statt je Codepunkt).
 * PDFs, die von einem Viewer neu gespeichert oder gedruckt wurden, verlieren die Kommentarzeilen
   und werden als „nicht lesbar“ gemeldet (gleiche Einschränkung wie im Feiditor).
