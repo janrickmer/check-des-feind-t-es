@@ -15,7 +15,7 @@ eingebetteten verschlüsselten Daten, nichts daraus wird ausgeführt. Sie zeigt 
 |---|---|
 | Nachname / Vorname | aus den verschlüsselten Feiditor-Daten (sonst aus dem Überblick) |
 | Code passt? | **ja** (grün) / **nein** (rot, fett): Bestätigungscode ↔ Geburtsdatum des Escape-Room-Überblicks, Konstante des jeweiligen Escape-Rooms, Namensabgleich Feiditor-Daten ↔ Überblick. „–“ = Datei enthält keinen Code (reiner Feiditor). |
-| Rote Buchstaben | Rot-Anteil wie in der Feiditor-Lehrkraft-Auswertung (eingefügt oder ≤ 0,015 s getippt); über 50 % rot hervorgehoben |
+| Rote Buchstaben | Rot-Anteil wie in der Feiditor-Lehrkraft-Auswertung (eingefügt oder ≤ 0,015 s getippt); ab 50 % rot und fett |
 | Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von einem Sprachmodell über die API des gewählten Anbieters (voreingestellt OpenRouter mit kostenlosen Modellen; wahlweise Groq, Google Gemini oder ein anderer OpenAI-kompatibler Dienst; Modell wählbar). Das Notenwort ist farbig: sehr gut hellgrün, gut dunkelgrün, befriedigend gelb, ausreichend orange, mangelhaft und ungenügend rot. |
 
 Ein Klick auf eine Zeile zeigt Details (Dateiart, Kurs, Geburtsdatum, Code, Abschlusszeit, Gründe
@@ -71,13 +71,45 @@ ungewöhnlich lang, weist die Detailzeile darauf hin.
 Drucken: Die Tabelle lässt sich direkt aus dem Browser drucken (A4 hoch); Kopfleiste, Upload-Feld
 und Schaltflächen werden dabei ausgeblendet, die Notenfarben bleiben erhalten.
 
-**Kontext für Dateien ohne Escape-Room:** Normale Feiditor-Dateien und Lerntagebuch-Einträge nennen
-weder Fach noch Jahrgang. Unter dem Feld zum Hochladen lässt sich dafür ein Kontext eintragen (etwa
+**Kontext für Dateien ohne Escape-Room:** Normale Feiditor-Dateien nennen weder Fach noch Jahrgang. Unter dem Feld zum Hochladen lässt sich dafür ein Kontext eintragen (etwa
 „Ethik, Klasse 8 – Thema Gewissen“); die KI erhält ihn für diese Dateien. Ohne Angabe schließt sie
 das Niveau aus Aufgaben und Antworten und bewertet im Zweifel nach Sekundarstufe I.
 
-**Feiditor:** Der normale Feiditor (feiditor.janrickmer.de) hat keinen Lehrkraft-Zugang mehr in der
-Fußzeile. Das Lerntagebuch und die in die Escape-Rooms eingebetteten Feiditoren haben ihn noch.
+**Lerntagebücher einer Klasse:** Alle Lerntagebuch-Einträge einer Klasse (etwa am Schuljahresende)
+lassen sich auf einmal hochladen. Sie erscheinen nicht in der Haupttabelle, sondern in einer eigenen
+Tabelle „Lerntagebücher“, je Person eine Zeile:
+
+| Spalte | Inhalt |
+|---|---|
+| Nachname / Vorname | aus den verschlüsselten Feiditor-Daten; Groß-/Kleinschreibung und Leerzeichen spielen für die Zuordnung keine Rolle, angezeigt wird die häufigste Schreibweise |
+| Rote Buchstaben (alle Einträge) | rot markierte Zeichen aller Einträge dieser Person geteilt durch alle ihre Zeichen (ohne Leerzeichen und ohne die vorgegebenen Fragen) – längere Einträge zählen entsprechend mehr; ab 50 % rot und fett |
+| Eingereichte Dateien | Anzahl der Einträge; Zwischenstände zählen wie fertige Abgaben, dieselbe Abgabe doppelt (etwa PDF und ältere Auswertungsdatei) zählt einmal |
+
+Ein Klick auf eine Person zeigt ihre Sitzungen nach Datum sortiert: Datum der Sitzung, Rot-Anteil
+dieses Eintrags (ab 50 % rot und fett; ein Klick öffnet die Feiditor-Ansicht mit dem farbig
+markierten Text) und die Zahl der Zeichen ohne Aufgabenstellungen. Liegen mehrere Dateien zum selben
+Datum vor, steht das dabei. Die Spaltenköpfe sortieren auch hier. Lerntagebücher werden nicht von der
+KI bewertet.
+
+Datum der Sitzung:
+1. Seit dem 30.09.2026 wählen die Schüler:innen das Datum bei Frage 1 im Lerntagebuch-Feiditor über
+   ein Kalenderfeld aus (kein Eintippen). Es steht als zweite Zeile im festen Block von Frage 1
+   („Dienstag, 29.09.2026“), erscheint so auch in der PDF und wird hier ausgelesen. Die fertige PDF
+   lässt sich erst mit Datum erzeugen; Zwischenstände jederzeit.
+2. Ältere Einträge: Die Seite liest das Datum aus der getippten Antwort auf Frage 1 („29.09.2026“,
+   „29.9.26“, „29. September 2026“, „29.09.“ …; fehlt die Jahreszahl, gilt das letzte passende Datum bis
+   zum Tag der PDF-Erstellung).
+3. Sonst aus dem Dateinamen („Lerntagebucheintrag_…_TTMMJJJJ.pdf“, „Textdatei_…“, „Zwischenstand vom
+   TT.MM.JJJJ …“, auch mit Moodle-Präfix) – das ist der Tag, an dem die PDF erstellt wurde. Die PDFs des
+   Feiditors enthalten keine Metadaten mit Datum.
+
+Woher das Datum stammt, steht in der aufgeklappten Zeile, wenn es nicht aus dem Kalenderfeld kommt.
+Liegt ein getipptes Datum nach dem Tag der PDF-Erstellung oder mehr als 200 Tage davor, weist die Zeile
+darauf hin. 600 Dateien werden in wenigen Sekunden eingelesen.
+
+**Feiditor:** Der normale Feiditor (feiditor.janrickmer.de) und der Lerntagebuch-Feiditor haben keinen
+Lehrkraft-Zugang mehr in der Fußzeile; die Auswertung läuft vollständig über diese Seite. Die in die
+Escape-Rooms eingebetteten Feiditoren haben ihn noch.
 
 ## Einrichtung
 
