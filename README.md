@@ -2,24 +2,49 @@
 
 Auswertungsseite für die Lehrkraft: <https://check.janrickmer.de>
 
-Eine einzige HTML-Datei (`index.html`) ohne externe Bibliotheken. Sie liest die PDF-Dateien
-aus den Escape-Rooms (kombinierte Datei „Escape Room Daten von …“), aus dem alleinigen
-Feiditor („Text von …“) und die Escape-Room-Überblicke („Escape-Room-Überblick_von_…“)
-direkt im Browser aus und zeigt eine Tabelle:
+Eine einzige HTML-Datei (`index.html`) ohne externe Bibliotheken. Sie ersetzt die frühere
+Lehrkraft-Ansicht des Feiditors und liest alle Feiditor-Dateien direkt im Browser aus:
+kombinierte Dateien aus den Escape-Rooms („Escape Room Daten von …“), Escape-Room-Überblicke
+(„Escape-Room-Überblick_von_…“), Dateien aus dem normalen Feiditor („Text von …“, mit oder ohne
+eingetragene Aufgabenstellungen), Lerntagebuch-Einträge („Lerntagebucheintrag_…“) und
+Zwischenstände („Zwischenstand vom … von …“). Auch die „Auswertungsdatei_….html“, die ältere
+Feiditor-Versionen (Juni bis August 2026) zusätzlich ausgegeben haben, wird gelesen – nur die darin
+eingebetteten verschlüsselten Daten, nichts daraus wird ausgeführt. Sie zeigt eine Tabelle:
 
 | Spalte | Inhalt |
 |---|---|
 | Nachname / Vorname | aus den verschlüsselten Feiditor-Daten (sonst aus dem Überblick) |
 | Code passt? | **ja** (grün) / **nein** (rot, fett): Bestätigungscode ↔ Geburtsdatum des Escape-Room-Überblicks, Konstante des jeweiligen Escape-Rooms, Namensabgleich Feiditor-Daten ↔ Überblick. „–“ = Datei enthält keinen Code (reiner Feiditor). |
 | Rote Buchstaben | Rot-Anteil wie in der Feiditor-Lehrkraft-Auswertung (eingefügt oder ≤ 0,015 s getippt); über 50 % rot hervorgehoben |
-| Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von einem Sprachmodell über die API des gewählten Anbieters (voreingestellt OpenRouter mit kostenlosen Modellen; wahlweise Groq, Google Gemini oder ein anderer OpenAI-kompatibler Dienst; Modell wählbar) |
+| Feiditor-Bewertung | je Aufgabe „Feiditor-Nr. N: sehr gut … ungenügend“, bewertet von einem Sprachmodell über die API des gewählten Anbieters (voreingestellt OpenRouter mit kostenlosen Modellen; wahlweise Groq, Google Gemini oder ein anderer OpenAI-kompatibler Dienst; Modell wählbar). Das Notenwort ist farbig: sehr gut hellgrün, gut dunkelgrün, befriedigend gelb, ausreichend orange, mangelhaft und ungenügend rot. |
 
-Ein Klick auf eine Zeile zeigt Details (Kurs, Geburtsdatum, Code, Abschlusszeit, Gründe der
-Code-Prüfung, Begründungen der KI). Ein Klick auf die Prozentzahl öffnet die Feiditor-Ansicht:
-der entschlüsselte Text mit jedem Zeichen so gefärbt wie in der Lehrkraft-Auswertung des Feiditors
-(rot = eingefügt oder ≤ 0,015 s, orange = 0,015–0,07 s, grün = langsamer getippt, grau =
-vorbefüllter Aufgabentext), samt Legende und Statistik. Eine reine Feiditor-Datei und der
-Überblick derselben Person werden automatisch zu einer Zeile zusammengeführt.
+Ein Klick auf eine Zeile zeigt Details (Dateiart, Kurs, Geburtsdatum, Code, Abschlusszeit, Gründe
+der Code-Prüfung, Begründungen der KI mit farbigem Notenwort). Ein Klick auf die Prozentzahl öffnet
+die Feiditor-Ansicht: der entschlüsselte Text mit jedem Zeichen so gefärbt wie in der
+Lehrkraft-Auswertung des Feiditors (rot = eingefügt oder ≤ 0,015 s, orange = 0,015–0,07 s,
+grün = langsamer getippt, schwarz = vorgegebener Aufgabentext, nicht gewertet), samt Legende und
+Statistik. Ein Klick auf einen Spaltenkopf sortiert die Tabelle, zum Beispiel nach Rot-Anteil
+(höchster zuerst, wie in der Tabellenansicht des Feiditors) oder nach Durchschnittsnote; der Browser
+merkt sich die zuletzt gewählte Sortierung. Haben fast alle Zeichen einer Datei einen Tippabstand
+von genau 0 ms, ohne als eingefügt markiert zu sein, weist die Detailzeile darauf hin: Das entsteht
+bei Text, der auf einen Schlag in den Feiditor kam (Diktierfunktion, Autovervollständigung) oder bei
+Datenverlust in älteren Feiditor-Versionen – rot heißt dann nicht zwingend kopiert.
+
+Zusammenführen: Eine Feiditor-Datei mit Escape-Room-Aufgaben, aber ohne Code (Standalone-Feiditor
+im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand) und der Überblick derselben Person werden
+zu einer Zeile zusammengeführt; fertige Abgaben haben dabei Vorrang vor Zwischenständen. Wird zur
+kombinierten Datei zusätzlich der separate Überblick mit demselben Code hochgeladen, entsteht keine
+zweite Zeile. Normale Feiditor-Dateien und Lerntagebuch-Einträge werden nie mit einem Überblick
+zusammengeführt. Zwischenstände sind in der Tabelle markiert (erkannt am Dateinamen – die PDF selbst
+unterscheidet sich nicht von der fertigen Abgabe).
+
+**Kontext für Dateien ohne Escape-Room:** Normale Feiditor-Dateien und Lerntagebuch-Einträge nennen
+weder Fach noch Jahrgang. Unter dem Feld zum Hochladen lässt sich dafür ein Kontext eintragen (etwa
+„Ethik, Klasse 8 – Thema Gewissen“); die KI erhält ihn für diese Dateien. Ohne Angabe schließt sie
+das Niveau aus Aufgaben und Antworten und bewertet im Zweifel nach Sekundarstufe I.
+
+**Feiditor:** Der normale Feiditor (feiditor.janrickmer.de) hat keinen Lehrkraft-Zugang mehr in der
+Fußzeile. Das Lerntagebuch und die in die Escape-Rooms eingebetteten Feiditoren haben ihn noch.
 
 ## Einrichtung
 
@@ -74,8 +99,9 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
 ## Datenschutz
 
 * Alle PDFs werden lokal im Browser gelesen und entschlüsselt; nichts wird hochgeladen. Schlüssel werden je Anbieter getrennt gespeichert (`cdf_<anbieter>_api_key_enc`), der gewählte Anbieter unter `cdf_provider`.
-* An die KI gehen nur: Kurszeile, Aufgabenstellungen, Antworttexte und die
-  Lösungserläuterungen aus dem Überblick. Keine Namen, Geburtsdaten oder Codes.
+* An die KI gehen nur: Art der Datei, Kurszeile bzw. der Kontext der Lehrkraft,
+  Aufgabenstellungen, Antworttexte und die Lösungserläuterungen aus dem Überblick. Keine Namen,
+  Geburtsdaten oder Codes.
 * Leere Antworten werden ohne KI als „ungenügend“ eingeordnet.
 * Der System-Prompt kennzeichnet Aufgaben, Antworten und Lösungserläuterungen als Daten aus einer
   Schülerdatei, nicht als Anweisungen.
@@ -92,13 +118,29 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   Die Konstanten der bekannten Escape-Rooms stehen in `ROOM_MAGIC`; bei einem neuen Escape-Room
   dort eine Zeile ergänzen (Kurszeile → Konstante). Unbekannte Konstanten werden als Hinweis
   gemeldet, nicht als „nein“.
-* Die Aufgaben werden anhand der vorbefüllten Systemzeilen („Aufgabe N“ + Aufgabentext) getrennt;
-  reine Feiditor-Texte ohne Aufgaben werden als eine Aufgabe bewertet. Der Standalone-Feiditor
+* Gemeinsame Feiditor-Engine (ab 28.09.2026, Standalone, Lerntagebuch und Escape-Rooms): Die
+  Nutzdaten enthalten die Blockstruktur `k` (je Block Art 0 = Zeile / 1 = Aufgabenblock,
+  Zeichenzahl, Labellänge) und das Format-Bit 16 für Aufgabentext. Aufgabenblöcke sind fest
+  eingefügte Aufgabentexte: im Escape-Room mit dem Label „Aufgabe N“, im normalen Feiditor
+  (Button „Neuen Aufgabentext eintragen“) und im Lerntagebuch ohne Label. Alle Zeilen bis zum
+  nächsten Aufgabenblock sind die Antwort; Text vor der ersten Aufgabe (etwa eine Überschrift)
+  wird der ersten Antwort vorangestellt. Beschriftete Aufgaben behalten ihre Nummer, selbst
+  ergänzte Aufgaben bekommen die nächste freie Nummer, sonst wird fortlaufend nummeriert.
+  Passt `k` nicht zum Text, gelten die älteren Regeln unten.
+* Ältere Dateien: Die Aufgaben werden anhand der vorbefüllten Systemzeilen („Aufgabe N“ +
+  Aufgabentext) getrennt; Systemtext ohne „Aufgabe N“ (etwa Lerntagebuch-Fragen mit Marke `q`)
+  bildet je zusammenhängendem Abschnitt eine Aufgabe; Texte ganz ohne Aufgaben werden als eine
+  Aufgabe bewertet. Nummeriert eine Aufgabenstellung sich selbst („1) …“ im Lerntagebuch), gilt diese
+  Nummer. Ältere Dateien speichern nur den Gesamtnamen; bei Doppel-Vornamen hilft der Dateiname
+  („Lerntagebucheintrag_Vorname_Nachname_TTMMJJJJ.pdf“) bei der Aufteilung. Der ältere Standalone-Feiditor
   verliert im Escape-Modus ab der ersten Eingabe die Systemmarkierung des nachfolgenden
   vorbefüllten Textes (die Aufgabentexte zählen dort als „eingefügt“). Die Seite erkennt die
   Struktur trotzdem, rechnet die Aufgabentexte aus dem Rot-Anteil heraus und nennt in den Details
   den ursprünglichen Wert der Datei.
 * Namen werden tolerant verglichen: Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő …) stehen
   auf den PDF-Seiten als „?“ und gelten beim Abgleich mit den Feiditor-Daten nicht als Abweichung.
+* `%TRACKDATA` und `%ESCAPEDATA` werden nur am Zeilenanfang gelesen (so schreiben sie Feiditor und
+  Escape-Room). Schülertext steht in der PDF immer in Klammern innerhalb eines Textstroms, deshalb
+  kann niemand eigene „Escape-Daten“ in seinen Text tippen.
 * PDFs, die von einem Viewer neu gespeichert oder gedruckt wurden, verlieren die Kommentarzeilen
   und werden als „nicht lesbar“ gemeldet (gleiche Einschränkung wie im Feiditor).
