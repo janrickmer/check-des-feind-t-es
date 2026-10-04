@@ -23,7 +23,10 @@ wie die bestehenden (Vorlage: ein aktueller Raum, z. B. janrickmer/escape-room-j
 2. **Übergabe an den eingebetteten Feiditor:** `openFeiditor()` setzt `window.__ESCAPE_DATA__` mit
    `firstName, lastName, birthDate, code, tasks: REFLECT_TASKS.slice(0,6), redFields: RED_FIELDS,
    ctx: ROOM_CONTEXT` (und `overview` für die Übersichtsseiten der kombinierten PDF). Der Feiditor speichert
-   `ctx` verschlüsselt in der PDF (`e.ctx`), auch in Zwischenständen und beim Fortsetzen.
+   `ctx` verschlüsselt in der PDF (`e.ctx`), auch in Zwischenständen und beim Fortsetzen. Die fertige Abgabe
+   heißt „Abgeschlossener Escape-Room von Vorname Nachname.pdf“ (Engine, `makePdfName()`; bis 03.10.2026
+   „Escape Room Daten von …“), der Zwischenstand „Zwischenstand vom … von ….pdf“; `firstNameFromFile()` kennt
+   beide Namen.
 3. **Überblick-PDF:** Seiten „Überblick deiner Antworten & Erläuterungen“ und „Lösungserläuterungen“,
    Labels `NAME` (oder `SCHÜLERIN / SCHÜLER`), `GEBURTSDATUM`, `BESTÄTIGUNGSCODE`, `ABGESCHLOSSEN AM`,
    `ÜBERSICHT`, Fußzeile „Bestätigungscode für Moodle: …“, Kurszeile „Fach · Jahrgang · Escape-Room „Name““,
@@ -59,6 +62,10 @@ Spanne nach der niedrigsten).
 - Nutzdaten (`%TRACKDATA`, AES-GCM): `t` Text, `m` Quelle + Tipp-Abstand je Zeichen, `f` Format-Bits,
   `k` Blockstruktur, `v: 2` (alle Längen in UTF-16-Einheiten), `z` (1 = Zwischenstand, 0 = fertige Abgabe),
   `e` = `{esc, red, ctx}` im Escape-Modus.
+- Die fertige Abgabe im Escape-Modus enthält auf jedem Weg die Überblicksseiten: im eingebetteten Feiditor neu
+  erzeugt, im eigenständigen Feiditor aus der hochgeladenen Überblick- bzw. Zwischenstand-PDF übernommen (Content-
+  Streams, in Feiditor-PDFs mit der Kommentarzeile `%ESCAPE-OVERVIEW` markiert). Die Zusammenführung zweier Dateien
+  im Check bleibt für ältere Dateien (vor dem 04.10.2026) nötig.
 
 ## Weitere Regeln
 

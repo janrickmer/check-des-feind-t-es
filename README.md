@@ -4,7 +4,8 @@ Auswertungsseite für die Lehrkraft: <https://check.janrickmer.de>
 
 Eine einzige HTML-Datei (`index.html`) ohne externe Bibliotheken. Sie ersetzt die frühere
 Lehrkraft-Ansicht des Feiditors und liest alle Feiditor-Dateien direkt im Browser aus:
-kombinierte Dateien aus den Escape-Rooms („Escape Room Daten von …“), Escape-Room-Überblicke
+kombinierte Dateien aus den Escape-Rooms („Abgeschlossener Escape-Room von …“, vor dem 04.10.2026
+„Escape Room Daten von …“), Escape-Room-Überblicke
 („Escape-Room-Überblick_von_…“), Dateien aus dem normalen Feiditor („Text von …“, mit oder ohne
 eingetragene Aufgabenstellungen), Lerntagebuch-Einträge („Lerntagebucheintrag_…“) und
 Zwischenstände („Zwischenstand vom … von …“). Auch die „Auswertungsdatei_….html“, die ältere
@@ -34,8 +35,9 @@ Detailzeile darauf hin, dass der Rot-Anteil zu niedrig sein kann: Diese Versione
 Emoji bei einem Teil der später getippten Zeichen das Tipp-Tempo (siehe unten). Dateien der
 korrigierten Version (Datenversion 2) sind davon nicht betroffen und bekommen keinen Hinweis.
 
-Zusammenführen: Eine Feiditor-Datei mit Escape-Room-Aufgaben, aber ohne Code (Standalone-Feiditor
-im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand) und der Überblick derselben Person aus
+Zusammenführen: Eine Feiditor-Datei mit Escape-Room-Aufgaben, aber ohne Code (vor dem 04.10.2026:
+Standalone-Feiditor im Escape-Modus, Pulsar-Raum, fortgesetzter Zwischenstand – seitdem enthält jede fertige
+Abgabe die Überblicksseiten) und der Überblick derselben Person aus
 demselben Escape-Room (Abgleich der Aufgabentexte) werden zu einer Zeile zusammengeführt; fertige
 Abgaben haben dabei Vorrang vor Zwischenständen. Wird zur kombinierten Datei zusätzlich der separate
 Überblick mit demselben Code hochgeladen, entsteht keine zweite Zeile. Dieselbe Abgabe doppelt (etwa
@@ -84,7 +86,7 @@ als Erwartungshorizont: Fehlen zentrale passende Inhalte oder sind sie falsch wi
 Abzug; richtiges Wissen darüber hinaus wertet auf; der Anspruch richtet sich nach der Jahrgangsstufe (beim
 Pulsar-Raum, Jahrgangsstufen 9–12, im Zweifel nach der niedrigsten). Ältere Dateien ohne Steckbrief erkennt
 die Seite an ihren Feiditor-Aufgaben und ergänzt den Steckbrief aus ihrer eigenen Liste (`ESCAPE_ROOMS`) –
-auch beim Pulsar-Raum, dessen Feiditor-Datei keine Überblicksseiten hat. Was die KI erhalten hat und woher
+auch bei älteren Dateien des Pulsar-Raums (vor dem 04.10.2026), deren Feiditor-Datei keine Überblicksseiten hat. Was die KI erhalten hat und woher
 es stammt, steht in den Details unter „Angaben für die KI“.
 
 | Escape-Room | Fach | Jahrgangsstufe |

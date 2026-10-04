@@ -926,7 +926,7 @@ function firstNameFromFile(name){
   const f=String(name||"");
   let mm=f.match(/(?:Lerntagebucheintrag|Textdatei|Auswertungsdatei)_([^_]+)_/i); if(mm) return mm[1];
   mm=f.match(/Zwischenstand vom .*? von (\S+)/i); if(mm) return mm[1];
-  mm=f.match(/(?:Text|Escape Room Daten) von (\S+)/i); if(mm) return mm[1].replace(/\.[a-z]+$/i,"");
+  mm=f.match(/(?:Text|Escape Room Daten|Abgeschlossener Escape-Room) von (\S+)/i); if(mm) return mm[1].replace(/\.[a-z]+$/i,"");
   return "";
 }
 
