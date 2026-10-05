@@ -100,6 +100,8 @@ es stammt, steht in den Details unter „Angaben für die KI“.
 | Das Gutachten | Evangelische Religion | 11 (Einführungsphase, E1) |
 | Stunde Null | Politik und Wirtschaft | 12 (Qualifikationsphase, Q2) |
 | Das Vermögensgeheimnis (Pulsar, Projektwoche Finanzielle Bildung) | Politik und Wirtschaft | 9–12 (gemischte Gruppe) |
+| Das Kartografie-Atelier (Berufsorientierung) | Politik und Wirtschaft | 11 (Einführungsphase) |
+| Konfliktanalyse im Härtetest | Politik und Wirtschaft | 13 (Qualifikationsphase, Q3) |
 
 Neue Escape-Rooms müssen genauso aufgebaut sein; die Checkliste steht in `CLAUDE.md`.
 
