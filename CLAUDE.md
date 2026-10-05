@@ -30,7 +30,8 @@ wie die bestehenden (Vorlage: ein aktueller Raum, z. B. janrickmer/escape-room-j
 3. **Überblick-PDF:** Seiten „Überblick deiner Antworten & Erläuterungen“ und „Lösungserläuterungen“,
    Labels `NAME` (oder `SCHÜLERIN / SCHÜLER`), `GEBURTSDATUM`, `BESTÄTIGUNGSCODE`, `ABGESCHLOSSEN AM`,
    `ÜBERSICHT`, Fußzeile „Bestätigungscode für Moodle: …“, Kurszeile „Fach · Jahrgang · Escape-Room „Name““,
-   Abschnitt „Verwendung von Zwischenstand-Dateien“. Hinter `%%EOF`: `%ESCAPEDATA` mit Base64-JSON
+   Abschnitt „Verwendung von Zwischenstand-Dateien“. Als Kommentarzeile direkt nach dem PDF-Kopf (bis 04.10.2026
+   hinter `%%EOF`): `%ESCAPEDATA` mit Base64-JSON
    `{v, n, t: REFLECT_TASKS.slice(0,6), r: RED_FIELDS, c: ROOM_CONTEXT}` (der Standalone-Feiditor übernimmt
    daraus im Escape-Modus Aufgaben und Steckbrief).
 4. **Eingebetteter Feiditor:** die gemeinsame Engine unverändert (siehe unten) als
