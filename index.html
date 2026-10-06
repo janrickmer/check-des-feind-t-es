@@ -466,16 +466,16 @@ function splitName(p){
 
 /* ---------------- PDF auf Byte-Ebene lesen ---------------- */
 /* %TRACKDATA steht im Feiditor immer als Kommentarzeile im Kopf der PDF (vor dem ersten Objekt), %ESCAPEDATA im
-   Escape-Room-Überblick seit dem 05.10.2026 ebenfalls im Kopf, in älteren Überblicken hinter dem letzten %%EOF. Schülertext steht dagegen in Klammern innerhalb eines Textstroms
+   Escape-Room-Überblick seit dem 05.10.2026 ebenfalls im Kopf, in älteren Überblicken als eigene Zeile hinter dem ersten %%EOF. Schülertext steht dagegen in Klammern innerhalb eines Textstroms
    (vor %%EOF, nie mit echtem Zeilenumbruch \n darin) – so kann niemand eigene Daten in seinen Text tippen, auch nicht
    mit einem eingefügten Wagenrücklauf (\r). */
 const HTML_BUNDLE_RE=/const BUNDLE="([A-Za-z0-9+\/=]+:[A-Za-z0-9+\/=]+)"/;
 const TRACK_RE=/(?:^|\n)%TRACKDATA ([A-Za-z0-9+\/=]+:[A-Za-z0-9+\/=]+)(?=\r?\n)/;
 const ESC_RE=/\n%ESCAPEDATA ([A-Za-z0-9+\/=]+)(?=\r?\n|$)/;
 function findTrackData(bin){ const end=bin.search(/\n\d+ 0 obj\b/); return (end>0?bin.slice(0,end+1):"").match(TRACK_RE); }
-function findEscapeData(bin){   // ab 05.10.2026 als Kommentarzeile im Kopf (wie %TRACKDATA), ältere Überblicke hinter dem letzten %%EOF
+function findEscapeData(bin){   // ab 05.10.2026 als Kommentarzeile im Kopf (wie %TRACKDATA), ältere Überblicke als eigene Zeile hinter dem ersten %%EOF (auch mit späterem Nachtrag eines PDF-Programms)
   const end=bin.search(/\n\d+ 0 obj\b/); const head=(end>0?bin.slice(0,end+1):"").match(ESC_RE); if(head) return head;
-  const eof=bin.lastIndexOf("%%EOF"); return eof<0?null:bin.slice(eof).match(ESC_RE);
+  const eof=bin.indexOf("%%EOF"); return eof<0?null:bin.slice(eof).match(ESC_RE);
 }
 
 function parseEscapeData(b64){
