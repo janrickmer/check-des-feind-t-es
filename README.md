@@ -254,10 +254,12 @@ Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modell
   den ursprünglichen Wert der Datei.
 * Namen werden tolerant verglichen: Buchstaben außerhalb von Windows-1252 (ş, ł, ć, ő …) stehen
   auf den PDF-Seiten als „?“ und gelten beim Abgleich mit den Feiditor-Daten nicht als Abweichung.
-* `%TRACKDATA` wird nur im Kopf der PDF (vor dem ersten Objekt) und `%ESCAPEDATA` nur hinter dem
-  letzten `%%EOF` gelesen – genau dort schreiben sie Feiditor und Escape-Room hin. Schülertext steht in
-  der PDF immer in Klammern innerhalb eines Textstroms davor, deshalb kann niemand eigene
-  „Escape-Daten“ in seinen Text tippen oder einfügen (auch nicht mit einem Wagenrücklauf).
+* `%TRACKDATA` wird nur im Kopf der PDF (vor dem ersten Objekt) gelesen, `%ESCAPEDATA` im Kopf
+  (Überblick-PDFs ab 05.10.2026) oder als eigene Zeile hinter dem ersten `%%EOF` (ältere Überblick-PDFs,
+  auch wenn ein PDF-Programm später etwas angehängt hat) – genau dort schreiben sie Feiditor und
+  Escape-Room hin. Schülertext steht in der PDF immer in Klammern innerhalb eines Textstroms, nie am
+  Zeilenanfang, deshalb kann niemand eigene „Escape-Daten“ in seinen Text tippen oder einfügen (auch
+  nicht mit einem Wagenrücklauf).
 * Emoji-Fehler der gemeinsamen Feiditor-Engine (28.09.–29.09.2026, seit 29.09.2026 in allen elf
   Feiditoren behoben): `serializeEditor` zählte Zeichen als Unicode-Codepunkte (`for (const ch of s)`),
   der Text `t`, die Tipp-Daten und `buildPayload` arbeiten aber mit UTF-16-Einheiten. Nach einem Emoji

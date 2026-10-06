@@ -55,9 +55,10 @@ Spanne nach der niedrigsten).
 
 ## Gemeinsame Feiditor-Engine
 
-- Eine Engine für elf Varianten: normaler Feiditor, Lerntagebuch-Feiditor und die in die neun Escape-Rooms
-  eingebetteten Feiditoren. Sie bleibt in allen Varianten byte-identisch; Änderungen als exakte Ersetzungen,
-  die in jeder Datei genau einmal vorkommen, in alle elf Dateien einspielen und prüfen.
+- Eine Engine für dreizehn Varianten: normaler Feiditor, Lerntagebuch-Feiditor und die in die elf Escape-Rooms
+  eingebetteten Feiditoren (janrickmer/escape-room-* sowie BSO-JG11 und Q3-PoWi-Konfliktanalyse-im-H-rtetest).
+  Sie bleibt in allen Varianten byte-identisch; Änderungen als exakte Ersetzungen, die in jeder Datei genau
+  einmal vorkommen, in alle dreizehn Dateien einspielen und prüfen.
 - Unterschiede nur über `window.FEIDITOR_CONFIG` (vor der Engine) oder eigene Skripte danach
   (z. B. das Kalenderfeld bei Frage 1 im Lerntagebuch).
 - Nutzdaten (`%TRACKDATA`, AES-GCM): `t` Text, `m` Quelle + Tipp-Abstand je Zeichen, `f` Format-Bits,
