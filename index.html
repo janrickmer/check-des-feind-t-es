@@ -1609,7 +1609,8 @@ const PROVIDERS={
   groq:{label:"Groq",kind:"openai",base:"https://api.groq.com/openai/v1",keyStore:"cdf_groq_api_key_enc",modelStore:"cdf_groq_model",
     gapMs:2500,placeholder:"gsk_…",fallbackModel:"openai/gpt-oss-120b",keyHint:" Bitte unter console.groq.com → API Keys prüfen."},
   gemini:{label:"Gemini",kind:"gemini",base:"https://generativelanguage.googleapis.com/v1beta",keyStore:"cdf_gemini_api_key_enc",modelStore:"cdf_gemini_model",
-    gapMs:4000,placeholder:"AIza…",fallbackModel:"gemini-flash-latest",keyHint:" Bitte in Google AI Studio prüfen."},
+    gapMs:4000,placeholder:"AIza…",fallbackModel:"gemini-flash-latest",keyHint:" Bitte in Google AI Studio prüfen.",
+    retired:/^gemini-3\.5-flash(?!-lite)/i},   // von Google abgekündigt (seit Oktober 2026 auf gemini-3.6-flash umgeleitet): nie wählen, gespeicherte Wahl ersetzen
   custom:{label:"Eigener Dienst",kind:"openai",base:"",keyStore:"cdf_custom_api_key_enc",modelStore:"cdf_custom_model",
     gapMs:1000,placeholder:"API-Schlüssel",fallbackModel:"",keyHint:""}
 };
@@ -1680,7 +1681,8 @@ function renderProviderUI(){
   st.textContent=hasKey()?"Für "+p.label+" ist in diesem Browser ein Schlüssel gespeichert (…"+getKey().slice(-4)+").":"Für "+p.label+" ist in diesem Browser noch kein Schlüssel hinterlegt.";
 }
 /* Modellwahl: Ausweichmodell der Sitzung > gespeichert > Vorgabe aus der Liste > Rückfall */
-function storedModel(){ try{ return localStorage.getItem(provider().modelStore)||""; }catch(e){ return ""; } }
+function retiredModel(id,p){ p=p||provider(); return !!(p.retired&&p.retired.test(id)); }
+function storedModel(){ let v=""; try{ v=localStorage.getItem(provider().modelStore)||""; }catch(e){} return retiredModel(v)?"":v; }
 function currentModel(){ return fallback[providerId()]||storedModel()||provider().fallbackModel; }
 function setModel(id){
   const pid=providerId();
@@ -1719,15 +1721,19 @@ function openaiScore(id,m){
   if(isFinite(params)&&params<12) sc-=30;
   return Math.max(0,sc);   // -1 nur für Nicht-Textmodelle; kleine Modelle bleiben wählbar, aber ganz hinten
 }
-function modelScore(id,m){ return provider().kind==="gemini"?geminiScore(id):openaiScore(id,m); }
+function modelScore(id,m){ if(retiredModel(id)) return -1; return provider().kind==="gemini"?geminiScore(id):openaiScore(id,m); }
 function rankedModels(){ return availableModels.filter(m=>modelScore(m.id,m)>=0).sort((a,b)=>modelScore(b.id,b)-modelScore(a.id,a)); }
 function pickDefaultModel(models){
   const best=models.map(m=>({id:m.id,s:modelScore(m.id,m)})).filter(x=>x.s>=0).sort((a,b)=>b.s-a.s)[0];
   return best?best.id:provider().fallbackModel;
 }
+/* Gespeichertes Modell behalten, solange der Anbieter es noch als Textmodell anführt; sonst die Vorgabe */
+function keepOrDefaultModel(){
+  if(availableModels.length&&!rankedModels().some(m=>m.id===storedModel())) setModel(pickDefaultModel(availableModels));
+}
 function modelHint(){
   const pid=providerId();
-  if(pid==="gemini") return "Vorgabe: neuestes stabiles Flash-Modell. Pro-Modelle bewerten meist genauer, haben im kostenlosen Kontingent aber engere Limits.";
+  if(pid==="gemini") return "Vorgabe: neuestes stabiles Flash-Modell; hat es für diesen Schlüssel kein kostenloses Kontingent (limit: 0) oder ist das Tageslimit erreicht, weicht die Seite auf das nächste aus. Pro-Modelle bewerten meist genauer, haben im kostenlosen Kontingent aber engere Limits.";
   if(pid==="openrouter") return "Nur kostenlose Modelle (:free). Vorgabe: das leistungsfähigste; ist es überlastet, wechselt die Seite automatisch zum nächsten.";
   if(pid==="groq") return "Vorgabe: gpt-oss-120b. Kleinere Modelle haben höhere Token-Limits, bewerten aber ungenauer.";
   return "Modelle laut …/models des Dienstes.";
@@ -1809,7 +1815,7 @@ async function refreshModels(){   // nach dem Entsperren / Anbieterwechsel mit v
   const k=getKey(), p=provider(); if(!k) return;
   try{
     const list=await fetchModels(k,p); if(provider()!==p) return;
-    availableModels=list; if(!storedModel()&&list.length) setModel(pickDefaultModel(list));
+    availableModels=list; keepOrDefaultModel();
     renderModelSelect(); refreshConn();
   }catch(e){}
 }
@@ -1831,7 +1837,7 @@ $("key-save").addEventListener("click",async()=>{
   try{
     availableModels=await fetchModels(k,p);
     Array.from(exhausted).forEach(x=>{ if(x.startsWith(p.id+":")) exhausted.delete(x); }); fallback[p.id]="";
-    if(availableModels.length&&!availableModels.some(m=>m.id===storedModel())) setModel(pickDefaultModel(availableModels));
+    keepOrDefaultModel();
     await storeKey(k,currentPin,p); setKey(k,p.id); $("api-key").value=""; refreshConn(); renderModelSelect();
     try{ localStorage.setItem(PROVIDER_STORE,p.id); }catch(e){}   // Anbieter des gespeicherten Schlüssels merken
     const usable=rankedModels().length;
@@ -1941,7 +1947,7 @@ function buildRequest(row){   // Gemini
   return {
     systemInstruction:{parts:[{text:systemText(row)}]},
     contents:[{role:"user",parts:[{text:buildUserMessage(row)}]}],
-    generationConfig:{temperature:0.2,maxOutputTokens:8192,responseMimeType:"application/json",responseSchema:GRADE_SCHEMA_GEMINI}
+    generationConfig:{maxOutputTokens:8192,responseMimeType:"application/json",responseSchema:GRADE_SCHEMA_GEMINI}   // ohne temperature: ab Gemini 3.6 ignoriert, später HTTP 400
   };
 }
 function buildOpenAIRequest(row,model,jsonMode){

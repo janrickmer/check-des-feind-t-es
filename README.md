@@ -169,7 +169,8 @@ Escape-Rooms eingebetteten Feiditoren haben ihn noch.
    liegt er nur im Arbeitsspeicher der geöffneten Seite; deshalb fragt die Seite bei jedem Öffnen die
    PIN ab. Wird die PIN im Quelltext geändert, müssen die Schlüssel einmal neu eingetragen werden.
    Nach dem Speichern fragt die Seite die verfügbaren Modelle beim Anbieter ab, schlägt das
-   leistungsfähigste vor und bietet die übrigen zur Auswahl an.
+   leistungsfähigste vor und bietet die übrigen zur Auswahl an. Führt der Anbieter ein gespeichertes
+   Modell nicht mehr an, ersetzt die Seite es beim nächsten Öffnen durch die Vorgabe.
 
 ## KI-Anbieter
 
@@ -188,7 +189,7 @@ laufende Sitzung; die Auswahl im Panel zeigt es als „Ausweichmodell“ bzw. �
 |---|---|---|---|
 | **OpenRouter** (Vorgabe) | kostenloses Konto, <https://openrouter.ai/settings/keys> | kostenlose Modelle (`:free`): 20 Anfragen/Minute, 50 Anfragen/Tag; nach einem einmaligen Guthabenkauf von 10 US-$ 1000 Anfragen/Tag. Gezählt werden Anfragen, keine Token. | Browser-Aufrufe (CORS) werden unterstützt. Die kostenlosen Modelle laufen bei Drittanbietern, die Eingaben protokollieren oder zum Training nutzen dürfen; das muss unter Settings → Privacy erlaubt sein, sonst antwortet die API „No endpoints found matching your data policy“. Vorgabe-Modell: das leistungsfähigste kostenlose (z. B. gpt-oss-120b). Ist das Tageslimit erreicht, meldet die Seite das ohne Durchprobieren anderer Modelle. |
 | **Groq** | kostenloses Konto ohne Kreditkarte, <https://console.groq.com/keys> | je nach Modell etwa 30 Anfragen/Minute und 1000/Tag, dazu Token-Limits pro Minute und Tag (z. B. 200 000 Token/Tag bei gpt-oss-120b ≈ 40 Schülerdateien; 100 000 bei Llama 3.3 70B). Tageslimits gelten je Modell, daher wechselt die Seite bei erschöpftem Modell. | Sehr schnell. Ob Groq Aufrufe direkt aus dem Browser zulässt, konnte nicht geprüft werden – falls nicht, meldet der Verbindungstest „erlaubt keine Aufrufe direkt aus dem Browser (CORS)“; dann OpenRouter nutzen. Datenschutzbedingungen von Groq vor dem Senden von Schülertexten prüfen. |
-| **Google Gemini** | Google AI Studio, <https://aistudio.google.com/app/apikey> | kostenloses Kontingent mit Minuten- und Tageslimits je Modell. Für viele Schlüssel liegt das Tageslimit der neuesten Modelle bei 0 („limit: 0“ noch vor der ersten Bewertung) – die Seite weicht dann auf das nächste Modell aus, für das der Schlüssel ein Kontingent hat. | Im kostenlosen Kontingent darf Google Eingaben zur Produktverbesserung nutzen und von Menschen prüfen lassen; im bezahlten nicht. Für den EWR, die Schweiz und das Vereinigte Königreich verlangt Google ein hinterlegtes Abrechnungskonto (dann gelten die Datenbedingungen der bezahlten Dienste). |
+| **Google Gemini** | Google AI Studio, <https://aistudio.google.com/app/apikey> | kostenloses Kontingent mit Minuten- und Tageslimits je Modell. Für viele Schlüssel liegt das Tageslimit der neuesten Modelle bei 0 („limit: 0“ noch vor der ersten Bewertung) – die Seite weicht dann auf das nächste Modell aus, für das der Schlüssel ein Kontingent hat. Vorgabe ist das neueste stabile Flash-Modell; abgekündigte Modelle (`gemini-3.5-flash`, seit Oktober 2026 auf `gemini-3.6-flash` umgeleitet) wählt die Seite nicht mehr. | Im kostenlosen Kontingent darf Google Eingaben zur Produktverbesserung nutzen und von Menschen prüfen lassen; im bezahlten nicht. Für den EWR, die Schweiz und das Vereinigte Königreich verlangt Google ein hinterlegtes Abrechnungskonto (dann gelten die Datenbedingungen der bezahlten Dienste). |
 | **Anderer OpenAI-kompatibler Dienst** | je nach Dienst | je nach Dienst | Basis-URL ohne Schrägstrich am Ende (z. B. `https://api.cerebras.ai/v1`); der Dienst muss CORS erlauben. Ohne `GET …/models` wird die Modell-ID von Hand eingetragen. |
 
 Technisch: OpenAI-kompatible Dienste werden über `POST {Basis-URL}/chat/completions` mit
@@ -196,7 +197,8 @@ Technisch: OpenAI-kompatible Dienste werden über `POST {Basis-URL}/chat/complet
 `response_format: {"type":"json_object"}` aufgerufen (lehnt ein Modell den JSON-Modus mit HTTP 400 ab,
 wird ohne wiederholt); die Antwort wird tolerant gelesen (Markdown-Zäune, `<think>`-Blöcke, Text
 drumherum, Noten in Groß-/Kleinschreibung). Gemini läuft weiter über `generateContent` mit
-`responseSchema`. Modelllisten kommen von `GET …/models` (OpenRouter zusätzlich `GET …/auth/key`
+`responseSchema`, aber ohne `temperature` (ab Gemini 3.6 ignoriert, bei späteren Modellen ein Fehler).
+Modelllisten kommen von `GET …/models` (OpenRouter zusätzlich `GET …/auth/key`
 zur Schlüsselprüfung, weil `/models` dort öffentlich ist); Nicht-Textmodelle (Whisper, TTS,
 Embeddings, Bild, Guard) werden ausgeblendet, kleine oder reine Reasoning-Modelle ans Ende sortiert.
 
